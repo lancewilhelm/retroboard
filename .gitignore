@@ -155,6 +155,9 @@ apps/*/cache/
 *.sqlite
 *.sqlite3
 
+# State persistence
+state.json
+
 # Configuration files with secrets
 config.local.py
 secrets.json
@@ -172,4 +175,3 @@ coverage.xml
 # Profiling data
 *.prof
 *.lprof
-

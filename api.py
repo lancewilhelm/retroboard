@@ -83,6 +83,32 @@ def create_api(manager):
 
         return jsonify({"success": True})
 
+    @app.route("/api/apps/<app_name>/config", methods=["GET"])
+    def get_app_config(app_name):
+        """Get saved configuration for a specific app."""
+        if app_name not in manager.get_available_apps():
+            return jsonify({"error": "App not found"}), 404
+
+        config = manager.get_app_config(app_name)
+        return jsonify({"app": app_name, "config": config})
+
+    @app.route("/api/apps/<app_name>/config", methods=["POST"])
+    def update_app_config(app_name):
+        """Update saved configuration for a specific app."""
+        if app_name not in manager.get_available_apps():
+            return jsonify({"error": "App not found"}), 404
+
+        data = request.get_json()
+        if not data:
+            return jsonify({"error": "Missing configuration data"}), 400
+
+        # Queue the update command
+        manager.queue_command(
+            {"action": "update_app_config", "app": app_name, "config": data}
+        )
+
+        return jsonify({"success": True, "app": app_name})
+
     @app.route("/api/health", methods=["GET"])
     def health():
         """Health check endpoint."""

@@ -98,7 +98,45 @@ POST /api/stop
 }
 ```
 
+### Get App Configuration
+```bash
+GET /api/apps/<app_name>/config
+```
+
+**Response:**
+```json
+{
+  "app": "scroll_text",
+  "config": {
+    "text": "Hello World!",
+    "color": [255, 0, 0],
+    "speed": 2
+  }
+}
+```
+
 ### Update App Configuration
+```bash
+POST /api/apps/<app_name>/config
+Content-Type: application/json
+
+{
+  "color": [255, 0, 0],
+  "speed": 3
+}
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "app": "scroll_text"
+}
+```
+
+**Note:** This endpoint saves configuration for any app (current or not). If updating the current running app, changes are applied immediately without restart.
+
+### Update Current App Configuration (Legacy)
 ```bash
 POST /api/config
 Content-Type: application/json
@@ -115,6 +153,8 @@ Content-Type: application/json
   "success": true
 }
 ```
+
+**Note:** This endpoint is maintained for backwards compatibility. Use `POST /api/apps/<app_name>/config` for new implementations.
 
 ### Health Check
 ```bash
@@ -148,13 +188,21 @@ curl -X POST http://localhost:5000/api/switch \
   -H "Content-Type: application/json" \
   -d '{"app": "scroll_text", "config": {"text": "Hello LED Matrix!"}}'
 
-# Switch to stars with custom settings
+# Switch to stars (uses saved config)
 curl -X POST http://localhost:5000/api/switch \
   -H "Content-Type: application/json" \
-  -d '{"app": "stars", "config": {"spawn_rate": 3, "lifetime": 60}}'
+  -d '{"app": "stars"}'
 
-# Update current app color
-curl -X POST http://localhost:5000/api/config \
+# Get saved config for an app
+curl http://localhost:5000/api/apps/scroll_text/config
+
+# Save config for an app (without switching to it)
+curl -X POST http://localhost:5000/api/apps/scroll_text/config \
+  -H "Content-Type: application/json" \
+  -d '{"text": "Hello LED!", "color": [255, 0, 0], "speed": 2}'
+
+# Update current app color (applies immediately)
+curl -X POST http://localhost:5000/api/apps/clock/config \
   -H "Content-Type: application/json" \
   -d '{"color": [255, 0, 0]}'
 
@@ -170,34 +218,69 @@ curl http://localhost:5000/api/health
 ```python
 import requests
 
-# Switch to clock
-response = requests.post('http://localhost:5000/api/switch', json={
-    'app': 'clock',
-    'config': {'color': [0, 255, 0]}
-})
+# Get saved config for an app
+response = requests.get('http://localhost:5000/api/apps/clock/config')
 print(response.json())
 
-# Update scroll text
-requests.post('http://localhost:5000/api/switch', json={
-    'app': 'scroll_text',
-    'config': {
-        'text': 'Python is awesome!',
-        'speed': 2,
-        'color': [255, 255, 0]
-    }
+# Pre-configure scroll_text (without switching to it)
+requests.post('http://localhost:5000/api/apps/scroll_text/config', json={
+    'text': 'Python is awesome!',
+    'speed': 2,
+    'color': [255, 255, 0]
 })
+
+# Now switch to it (uses saved config)
+requests.post('http://localhost:5000/api/switch', json={
+    'app': 'scroll_text'
+})
+
+# Update current app color immediately
+requests.post('http://localhost:5000/api/apps/scroll_text/config', json={
+    'color': [0, 255, 0]
+})
+```
+
+## RESTful API Design
+
+The API follows RESTful principles for configuration management:
+
+- **GET /api/apps/<app_name>/config** - Retrieve saved configuration
+- **POST /api/apps/<app_name>/config** - Save/update configuration
+- **POST /api/switch** - Switch to app (uses saved config)
+
+### Benefits
+
+1. **Pre-configure apps** - Set up apps before switching to them
+2. **Persistent configs** - All configs are automatically saved to `state.json`
+3. **Immediate updates** - Updating current app applies changes instantly
+4. **Independent operations** - Configure one app while another is running
+
+### Workflow Example
+
+```bash
+# 1. Configure multiple apps without switching
+curl -X POST http://localhost:5000/api/apps/clock/config \
+  -d '{"color": [255, 0, 0]}'
+curl -X POST http://localhost:5000/api/apps/stars/config \
+  -d '{"spawn_rate": 5}'
+
+# 2. Switch between them (each uses its saved config)
+curl -X POST http://localhost:5000/api/switch -d '{"app": "clock"}'
+curl -X POST http://localhost:5000/api/switch -d '{"app": "stars"}'
+
+# 3. Both apps remember their settings across switches!
 ```
 
 ## Application Configurations
 
 ### Clock App
-```json
+
+**Set configuration:**
+```bash
+POST /api/apps/clock/config
 {
-  "app": "clock",
-  "config": {
-    "font": "6x10",
-    "color": [0, 255, 255]
-  }
+  "font": "6x10",
+  "color": [0, 255, 255]
 }
 ```
 
@@ -206,16 +289,16 @@ Options:
 - `color` - RGB tuple [r, g, b] (0-255 each)
 
 ### Scroll Text App
-```json
+
+**Set configuration:**
+```bash
+POST /api/apps/scroll_text/config
 {
-  "app": "scroll_text",
-  "config": {
-    "text": "Hello World!",
-    "font": "6x10",
-    "color": [0, 255, 255],
-    "speed": 1,
-    "fps": 30
-  }
+  "text": "Hello World!",
+  "font": "6x10",
+  "color": [0, 255, 255],
+  "speed": 1,
+  "fps": 30
 }
 ```
 
@@ -227,14 +310,14 @@ Options:
 - `fps` - Frames per second (default: 30)
 
 ### Stars App
-```json
+
+**Set configuration:**
+```bash
+POST /api/apps/stars/config
 {
-  "app": "stars",
-  "config": {
-    "spawn_rate": 1,
-    "lifetime": 40,
-    "fps": 60
-  }
+  "spawn_rate": 1,
+  "lifetime": 40,
+  "fps": 60
 }
 ```
 

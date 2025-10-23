@@ -282,7 +282,24 @@ python3 server.py
 sudo python3 server.py --hardware
 ```
 
-The server will start on `http://0.0.0.0:5000` with the clock app running by default.
+The server will start on `http://0.0.0.0:5000`. If you've used the server before, it will restore your last running app with its saved configuration. Otherwise, it starts with the clock app by default.
+
+### State Persistence
+
+The server automatically saves and restores its state:
+- **Last running app** is remembered across restarts
+- **App configurations** are preserved for each app
+- **Automatic saving** after every app switch or config change
+
+```bash
+# Normal startup - restores last state
+python3 main.py
+
+# Start fresh, ignoring saved state
+python3 main.py --ignore-state
+```
+
+State is saved to `state.json` in the project root. See [docs/STATE_PERSISTENCE.md](docs/STATE_PERSISTENCE.md) for details.
 
 ### Web Interface
 
@@ -342,11 +359,9 @@ curl -X POST http://localhost:5000/api/switch \
 
 ### API Documentation
 
-See [docs/API.md](docs/API.md) for complete API documentation including:
-- All available endpoints
-- Request/response formats
-- Configuration options for each app
-- Usage examples
+See complete documentation:
+- [docs/API.md](docs/API.md) - Complete API reference
+- [docs/STATE_PERSISTENCE.md](docs/STATE_PERSISTENCE.md) - State persistence details
 
 ### Testing the API
 

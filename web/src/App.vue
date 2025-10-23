@@ -13,7 +13,7 @@ const lastKnownApp = ref(null);
 // App Configurations
 const clockConfig = ref({
     font: "tom-thumb",
-    color: [0, 255, 255],
+    color: [255, 255, 255],
 });
 
 const scrollConfig = ref({
@@ -146,48 +146,80 @@ async function switchApp() {
     const isUpdatingCurrentApp = selectedApp.value === currentApp.value;
 
     try {
-        let response;
-
-        if (isUpdatingCurrentApp) {
-            // Update config of running app without restarting
-            response = await fetch(`${API_BASE}/config`, {
+        // Save config for the app (current or not)
+        const saveResponse = await fetch(
+            `${API_BASE}/apps/${selectedApp.value}/config`,
+            {
                 method: "POST",
                 headers: {
                     "Content-Type": "application/json",
                 },
                 body: JSON.stringify(config),
-            });
-        } else {
-            // Switch to a different app
-            response = await fetch(`${API_BASE}/switch`, {
+            },
+        );
+
+        if (!saveResponse.ok) {
+            const data = await saveResponse.json();
+            error.value = data.error || "Failed to save config";
+            return;
+        }
+
+        // If it's not the current app, switch to it
+        if (!isUpdatingCurrentApp) {
+            const switchResponse = await fetch(`${API_BASE}/switch`, {
                 method: "POST",
                 headers: {
                     "Content-Type": "application/json",
                 },
                 body: JSON.stringify({
                     app: selectedApp.value,
-                    config: config,
                 }),
             });
-        }
 
-        if (response.ok) {
-            if (!isUpdatingCurrentApp) {
+            if (switchResponse.ok) {
                 currentApp.value = selectedApp.value;
                 lastKnownApp.value = selectedApp.value;
+                error.value = null;
+            } else {
+                const data = await switchResponse.json();
+                error.value = data.error || "Failed to switch app";
             }
-            error.value = null;
         } else {
-            const data = await response.json();
-            error.value =
-                data.error ||
-                (isUpdatingCurrentApp
-                    ? "Failed to update config"
-                    : "Failed to switch app");
+            // Config was saved and applied to current app
+            error.value = null;
         }
     } catch (err) {
         error.value = "Failed to communicate with server";
-        console.error("Error switching app:", err);
+        console.error("Error switching/updating app:", err);
+    }
+}
+
+async function saveConfig() {
+    if (!selectedApp.value) return;
+
+    const config = getAppConfig(selectedApp.value);
+
+    try {
+        const response = await fetch(
+            `${API_BASE}/apps/${selectedApp.value}/config`,
+            {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                },
+                body: JSON.stringify(config),
+            },
+        );
+
+        if (response.ok) {
+            error.value = null;
+        } else {
+            const data = await response.json();
+            error.value = data.error || "Failed to save config";
+        }
+    } catch (err) {
+        error.value = "Failed to communicate with server";
+        console.error("Error saving config:", err);
     }
 }
 
@@ -211,8 +243,23 @@ async function stopApp() {
     }
 }
 
-function selectApp(app) {
+async function selectApp(app) {
     selectedApp.value = app;
+
+    // Fetch saved config for this app from server
+    try {
+        const response = await fetch(`${API_BASE}/apps/${app}/config`);
+        if (response.ok) {
+            const data = await response.json();
+            // Update form with saved config if it exists
+            if (data.config && Object.keys(data.config).length > 0) {
+                updateConfigFromServer(app, data.config);
+            }
+        }
+    } catch (err) {
+        console.error(`Error fetching config for ${app}:`, err);
+        // Keep defaults if fetch fails
+    }
 }
 
 // Lifecycle
@@ -479,13 +526,21 @@ onUnmounted(() => {
                 </div>
 
                 <div class="form-actions">
-                    <button @click="switchApp" class="btn btn-primary">
-                        {{
-                            selectedApp === currentApp
-                                ? "Update Config"
-                                : "Switch to App"
-                        }}
+                    <button
+                        v-if="selectedApp === currentApp"
+                        @click="switchApp"
+                        class="btn btn-primary"
+                    >
+                        Update Config
                     </button>
+                    <div v-else class="button-group">
+                        <button @click="saveConfig" class="btn btn-secondary">
+                            Save Config
+                        </button>
+                        <button @click="switchApp" class="btn btn-primary">
+                            Switch to App
+                        </button>
+                    </div>
                 </div>
             </section>
 
@@ -779,6 +834,11 @@ section h2 {
     display: flex;
     gap: 1rem;
     margin-top: 1rem;
+}
+
+.button-group {
+    display: flex;
+    gap: 1rem;
 }
 
 .btn {
