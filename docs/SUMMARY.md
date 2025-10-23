@@ -7,24 +7,31 @@ A complete, production-ready LED matrix application server with:
 ✅ **Application Framework** - Simple base class for creating matrix apps  
 ✅ **Application Manager** - Lifecycle management and app switching  
 ✅ **HTTP API** - Remote control via REST endpoints  
+✅ **Web Interface** - Modern Vue 3 control panel  
 ✅ **Three Demo Apps** - Clock, scrolling text, and stars  
 ✅ **Text Rendering** - Custom BDF font parser  
-✅ **Hardware & Simulation** - Works with or without physical matrix  
+✅ **Hardware & Simulation** - Works with or without physical matrix
 
 ## Quick Start
 
 ```bash
 # Install Flask
 source ~/venvs/matrix/bin/activate
-pip install flask
+pip install flask flask-cors
 
 # Start the server
 python3 server.py
 
-# Control it via API
+# Control via API
 curl -X POST http://localhost:5000/api/switch \
   -H "Content-Type: application/json" \
   -d '{"app": "stars"}'
+
+# Or use the web interface
+cd web
+pnpm install
+pnpm run dev
+# Open http://localhost:3000
 ```
 
 ## Project Structure
@@ -36,12 +43,17 @@ retroboard/
 │   └── text/             # BDF font parser
 ├── apps/                 # Applications
 │   ├── base.py           # MatrixApplication base class
-│   ├── clock.py          # Digital clock
-│   ├── scroll_text.py    # Scrolling text
-│   └── stars.py          # Twinkling stars
+│   ├── clock/            # Digital clock app
+│   ├── scroll_text/      # Scrolling text app
+│   └── stars/            # Twinkling stars app
+├── web/                  # Vue 3 web interface
+│   ├── src/              # Vue source code
+│   ├── package.json      # Frontend dependencies
+│   └── README.md         # Web interface docs
 ├── manager.py            # Application lifecycle manager
-├── api.py                # Flask REST API
+├── api.py                # Flask REST API (with CORS)
 ├── server.py             # Main entry point
+├── docs/                 # Documentation
 └── examples/             # Original standalone versions
 ```
 
@@ -250,11 +262,32 @@ print('✅ App works!')
 ## Documentation
 
 - `README.md` - Project overview
-- `API.md` - Complete API documentation
-- `SERVER.md` - Server architecture details
-- `INSTALL.md` - Installation instructions
-- `TEXT_RENDERING.md` - How text rendering works
-- `STRUCTURE.md` - Project file structure
+- `docs/API.md` - Complete API documentation
+- `docs/WEB_INTERFACE.md` - Web interface guide
+- `docs/SERVER.md` - Server architecture details
+- `docs/INSTALL.md` - Installation instructions
+- `docs/TEXT_RENDERING.md` - How text rendering works
+- `docs/STRUCTURE.md` - Project file structure
+- `web/README.md` - Web interface quick start
+
+## Web Interface
+
+A modern Vue 3 web application provides visual control:
+
+```bash
+cd web
+pnpm install
+pnpm run dev
+```
+
+Features:
+- 🎮 Click to switch apps
+- ⚙️ Real-time configuration
+- 🎨 Visual color picker
+- 📊 Live connection status
+- 📱 Responsive design
+
+See `web/README.md` and `docs/WEB_INTERFACE.md` for details.
 
 ## Future Enhancements
 
@@ -262,8 +295,7 @@ Already designed to support:
 - **Carousel mode** - Auto-rotate through apps
 - **Scheduling** - Time-based app switching
 - **Presets** - Named configurations
-- **WebSocket** - Real-time updates
-- **Web UI** - Browser control panel
+- **WebSocket** - Real-time updates (polling currently)
 - **Transitions** - Fade between apps
 
 ## Code Stats
@@ -289,16 +321,22 @@ Already designed to support:
 ```bash
 # 1. Install Flask
 source ~/venvs/matrix/bin/activate
-pip install flask
+pip install flask flask-cors
 
 # 2. Start server
 cd ~/retroboard
 python3 server.py
 
-# 3. Control it
+# 3. Control via API
 curl http://localhost:5000/api/apps
 
-# 4. Create your own app!
+# 4. Or use the web interface
+cd web
+pnpm install
+pnpm run dev
+# Open http://localhost:3000
+
+# 5. Create your own app!
 ```
 
-See `API.md` for complete API documentation and `SERVER.md` for architecture details.
+See `docs/API.md` for complete API documentation, `docs/WEB_INTERFACE.md` for web interface details, and `docs/SERVER.md` for architecture details.

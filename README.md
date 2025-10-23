@@ -1,6 +1,6 @@
 # Retroboard Driver
 
-A simple, abstracted driver for controlling RGB LED matrices on Raspberry Pi, with support for both hardware and simulated displays, plus a custom text rendering library.
+A simple, abstracted driver for controlling RGB LED matrices on Raspberry Pi, with support for both hardware and simulated displays, plus a custom text rendering library and web interface.
 
 ## Overview
 
@@ -270,7 +270,7 @@ This driver wrapper follows the same license as the main retroboard project.
 
 ## Matrix Application Server
 
-The retroboard includes an application server that allows you to remotely control the LED matrix through a simple HTTP API.
+The retroboard includes an application server that allows you to remotely control the LED matrix through a simple HTTP API or web interface.
 
 ### Quick Start
 
@@ -283,6 +283,37 @@ sudo python3 server.py --hardware
 ```
 
 The server will start on `http://0.0.0.0:5000` with the clock app running by default.
+
+### Web Interface
+
+A modern Vue 3 web interface is provided for easy control of the LED matrix.
+
+**Installation:**
+```bash
+cd web
+pnpm install
+```
+
+**Development:**
+```bash
+# Terminal 1: Start the RetroBoard server
+python3 server.py
+
+# Terminal 2: Start the web interface
+cd web
+pnpm run dev
+```
+
+Then open your browser to `http://localhost:3000`
+
+**Features:**
+- 🎮 Switch between apps with a click
+- ⚙️ Configure app settings in real-time
+- 🎨 Visual color picker for RGB values
+- 📊 Live connection status
+- 🔴 Stop/start applications
+
+See [web/README.md](web/README.md) for complete web interface documentation.
 
 ### Switching Applications via API
 
@@ -311,7 +342,7 @@ curl -X POST http://localhost:5000/api/switch \
 
 ### API Documentation
 
-See [API.md](API.md) for complete API documentation including:
+See [docs/API.md](docs/API.md) for complete API documentation including:
 - All available endpoints
 - Request/response formats
 - Configuration options for each app
