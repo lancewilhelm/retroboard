@@ -275,15 +275,15 @@ The app uses scoped CSS in `App.vue` with full dark/light theme support.
 
 **Light Theme Colors:**
 - **Primary Color**: `#667eea` (purple)
-- **Background**: Purple gradient
+- **Background**: Light gray gradient (`#e5e7eb` → `#d1d5db`)
 - **Text**: Dark gray
 - **Cards**: White
 
 **Dark Theme Colors:**
-- **Primary Color**: `#818cf8` (lighter purple)
-- **Background**: Dark blue-gray gradient
-- **Text**: Light gray
-- **Cards**: Dark slate
+- **Primary Color**: `#4b5563` (medium gray)
+- **Background**: Black to dark gray gradient (`#111827` → `#1f2937`)
+- **Text**: Light gray (`#e5e7eb`)
+- **Cards**: Dark gray (`#1f2937`)
 
 To customize, edit the `<style scoped>` section in `App.vue`. Theme is controlled via the `.dark-theme` class on the root element.
 

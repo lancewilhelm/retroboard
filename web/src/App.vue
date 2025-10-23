@@ -1,246 +1,3 @@
-<template>
-    <div class="app" :class="{ 'dark-theme': isDarkTheme }">
-        <header class="header">
-            <h1>🎮 RetroBoard Controller</h1>
-            <div class="header-actions">
-                <button
-                    @click="toggleTheme"
-                    class="btn-icon"
-                    :title="isDarkTheme ? 'Light Mode' : 'Dark Mode'"
-                >
-                    {{ isDarkTheme ? "☀️" : "🌙" }}
-                </button>
-                <div class="status" :class="{ connected: isConnected }">
-                    <span class="status-dot"></span>
-                    {{ isConnected ? "Connected" : "Disconnected" }}
-                </div>
-            </div>
-        </header>
-
-        <main class="main">
-            <!-- Current App Display -->
-            <section class="current-app">
-                <h2>Current App</h2>
-                <div class="app-display">
-                    <div class="app-name">{{ currentApp || "None" }}</div>
-                    <div class="app-actions">
-                        <button
-                            @click="refreshConfig"
-                            class="btn btn-secondary"
-                            :disabled="!currentApp"
-                            title="Refresh config from server"
-                        >
-                            🔄 Refresh
-                        </button>
-                        <button
-                            @click="stopApp"
-                            class="btn btn-danger"
-                            :disabled="!currentApp"
-                        >
-                            Stop App
-                        </button>
-                    </div>
-                </div>
-            </section>
-
-            <!-- App Switcher -->
-            <section class="app-switcher">
-                <h2>Available Apps</h2>
-                <div class="app-grid">
-                    <div
-                        v-for="app in availableApps"
-                        :key="app"
-                        class="app-card"
-                        :class="{ active: app === currentApp }"
-                        @click="selectApp(app)"
-                    >
-                        <div class="app-icon">{{ getAppIcon(app) }}</div>
-                        <div class="app-label">{{ formatAppName(app) }}</div>
-                    </div>
-                </div>
-            </section>
-
-            <!-- App Configuration -->
-            <section v-if="selectedApp" class="app-config">
-                <h2>{{ formatAppName(selectedApp) }} Configuration</h2>
-
-                <!-- Clock App Config -->
-                <div v-if="selectedApp === 'clock'" class="config-form">
-                    <div class="form-group">
-                        <label>Font:</label>
-                        <select v-model="clockConfig.font" class="input">
-                            <option value="tom-thumb">Tom Thumb</option>
-                            <option value="6x10">6x10</option>
-                        </select>
-                    </div>
-                    <div class="form-group">
-                        <label>Color:</label>
-                        <div class="color-inputs">
-                            <input
-                                type="number"
-                                v-model.number="clockConfig.color[0]"
-                                min="0"
-                                max="255"
-                                placeholder="R"
-                                class="input input-sm"
-                            />
-                            <input
-                                type="number"
-                                v-model.number="clockConfig.color[1]"
-                                min="0"
-                                max="255"
-                                placeholder="G"
-                                class="input input-sm"
-                            />
-                            <input
-                                type="number"
-                                v-model.number="clockConfig.color[2]"
-                                min="0"
-                                max="255"
-                                placeholder="B"
-                                class="input input-sm"
-                            />
-                        </div>
-                        <div
-                            class="color-preview"
-                            :style="{
-                                backgroundColor: rgbToHex(clockConfig.color),
-                            }"
-                        ></div>
-                    </div>
-                </div>
-
-                <!-- Scroll Text App Config -->
-                <div
-                    v-else-if="selectedApp === 'scroll_text'"
-                    class="config-form"
-                >
-                    <div class="form-group">
-                        <label>Text:</label>
-                        <input
-                            type="text"
-                            v-model="scrollConfig.text"
-                            class="input"
-                            placeholder="Enter text to display"
-                        />
-                    </div>
-                    <div class="form-group">
-                        <label>Font:</label>
-                        <select v-model="scrollConfig.font" class="input">
-                            <option value="tom-thumb">Tom Thumb</option>
-                            <option value="6x10">6x10</option>
-                        </select>
-                    </div>
-                    <div class="form-group">
-                        <label>Speed:</label>
-                        <input
-                            type="number"
-                            v-model.number="scrollConfig.speed"
-                            min="1"
-                            max="10"
-                            class="input"
-                        />
-                    </div>
-                    <div class="form-group">
-                        <label>FPS:</label>
-                        <input
-                            type="number"
-                            v-model.number="scrollConfig.fps"
-                            min="10"
-                            max="60"
-                            class="input"
-                        />
-                    </div>
-                    <div class="form-group">
-                        <label>Color:</label>
-                        <div class="color-inputs">
-                            <input
-                                type="number"
-                                v-model.number="scrollConfig.color[0]"
-                                min="0"
-                                max="255"
-                                placeholder="R"
-                                class="input input-sm"
-                            />
-                            <input
-                                type="number"
-                                v-model.number="scrollConfig.color[1]"
-                                min="0"
-                                max="255"
-                                placeholder="G"
-                                class="input input-sm"
-                            />
-                            <input
-                                type="number"
-                                v-model.number="scrollConfig.color[2]"
-                                min="0"
-                                max="255"
-                                placeholder="B"
-                                class="input input-sm"
-                            />
-                        </div>
-                        <div
-                            class="color-preview"
-                            :style="{
-                                backgroundColor: rgbToHex(scrollConfig.color),
-                            }"
-                        ></div>
-                    </div>
-                </div>
-
-                <!-- Stars App Config -->
-                <div v-else-if="selectedApp === 'stars'" class="config-form">
-                    <div class="form-group">
-                        <label>Spawn Rate:</label>
-                        <input
-                            type="number"
-                            v-model.number="starsConfig.spawn_rate"
-                            min="1"
-                            max="10"
-                            class="input"
-                        />
-                    </div>
-                    <div class="form-group">
-                        <label>Lifetime:</label>
-                        <input
-                            type="number"
-                            v-model.number="starsConfig.lifetime"
-                            min="10"
-                            max="100"
-                            class="input"
-                        />
-                    </div>
-                    <div class="form-group">
-                        <label>FPS:</label>
-                        <input
-                            type="number"
-                            v-model.number="starsConfig.fps"
-                            min="10"
-                            max="120"
-                            class="input"
-                        />
-                    </div>
-                </div>
-
-                <div class="form-actions">
-                    <button @click="switchApp" class="btn btn-primary">
-                        {{
-                            selectedApp === currentApp
-                                ? "Update Config"
-                                : "Switch to App"
-                        }}
-                    </button>
-                </div>
-            </section>
-
-            <!-- Error Display -->
-            <div v-if="error" class="error-banner">
-                {{ error }}
-            </div>
-        </main>
-    </div>
-</template>
-
 <script setup>
 import { ref, onMounted, onUnmounted, watch } from "vue";
 
@@ -497,16 +254,259 @@ onUnmounted(() => {
 });
 </script>
 
+<template>
+    <div class="app" :class="{ 'dark-theme': isDarkTheme }">
+        <header class="header">
+            <h1>🎮 RetroBoard Controller</h1>
+            <div class="header-actions">
+                <button
+                    @click="toggleTheme"
+                    class="btn-icon"
+                    :title="isDarkTheme ? 'Light Mode' : 'Dark Mode'"
+                >
+                    {{ isDarkTheme ? "☀️" : "🌙" }}
+                </button>
+                <div class="status" :class="{ connected: isConnected }">
+                    <span class="status-dot"></span>
+                    {{ isConnected ? "Connected" : "Disconnected" }}
+                </div>
+            </div>
+        </header>
+
+        <main class="main">
+            <!-- Current App Display -->
+            <section class="current-app">
+                <h2>Current App</h2>
+                <div class="app-display">
+                    <div class="app-name">{{ currentApp || "None" }}</div>
+                    <div class="app-actions">
+                        <button
+                            @click="refreshConfig"
+                            class="btn btn-secondary"
+                            :disabled="!currentApp"
+                            title="Refresh config from server"
+                        >
+                            🔄 Refresh
+                        </button>
+                        <button
+                            @click="stopApp"
+                            class="btn btn-danger"
+                            :disabled="!currentApp"
+                        >
+                            Stop App
+                        </button>
+                    </div>
+                </div>
+            </section>
+
+            <!-- App Switcher -->
+            <section class="app-switcher">
+                <h2>Available Apps</h2>
+                <div class="app-grid">
+                    <div
+                        v-for="app in availableApps"
+                        :key="app"
+                        class="app-card"
+                        :class="{ active: app === currentApp }"
+                        @click="selectApp(app)"
+                    >
+                        <div class="app-icon">{{ getAppIcon(app) }}</div>
+                        <div class="app-label">{{ formatAppName(app) }}</div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- App Configuration -->
+            <section v-if="selectedApp" class="app-config">
+                <h2>{{ formatAppName(selectedApp) }} Configuration</h2>
+
+                <!-- Clock App Config -->
+                <div v-if="selectedApp === 'clock'" class="config-form">
+                    <div class="form-group">
+                        <label>Font:</label>
+                        <select v-model="clockConfig.font" class="input">
+                            <option value="tom-thumb">Tom Thumb</option>
+                            <option value="6x10">6x10</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Color:</label>
+                        <div class="color-inputs">
+                            <input
+                                type="number"
+                                v-model.number="clockConfig.color[0]"
+                                min="0"
+                                max="255"
+                                placeholder="R"
+                                class="input input-sm"
+                            />
+                            <input
+                                type="number"
+                                v-model.number="clockConfig.color[1]"
+                                min="0"
+                                max="255"
+                                placeholder="G"
+                                class="input input-sm"
+                            />
+                            <input
+                                type="number"
+                                v-model.number="clockConfig.color[2]"
+                                min="0"
+                                max="255"
+                                placeholder="B"
+                                class="input input-sm"
+                            />
+                        </div>
+                        <div
+                            class="color-preview"
+                            :style="{
+                                backgroundColor: rgbToHex(clockConfig.color),
+                            }"
+                        ></div>
+                    </div>
+                </div>
+
+                <!-- Scroll Text App Config -->
+                <div
+                    v-else-if="selectedApp === 'scroll_text'"
+                    class="config-form"
+                >
+                    <div class="form-group">
+                        <label>Text:</label>
+                        <input
+                            type="text"
+                            v-model="scrollConfig.text"
+                            class="input"
+                            placeholder="Enter text to display"
+                        />
+                    </div>
+                    <div class="form-group">
+                        <label>Font:</label>
+                        <select v-model="scrollConfig.font" class="input">
+                            <option value="tom-thumb">Tom Thumb</option>
+                            <option value="6x10">6x10</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Speed:</label>
+                        <input
+                            type="number"
+                            v-model.number="scrollConfig.speed"
+                            min="1"
+                            max="10"
+                            class="input"
+                        />
+                    </div>
+                    <div class="form-group">
+                        <label>FPS:</label>
+                        <input
+                            type="number"
+                            v-model.number="scrollConfig.fps"
+                            min="10"
+                            max="60"
+                            class="input"
+                        />
+                    </div>
+                    <div class="form-group">
+                        <label>Color:</label>
+                        <div class="color-inputs">
+                            <input
+                                type="number"
+                                v-model.number="scrollConfig.color[0]"
+                                min="0"
+                                max="255"
+                                placeholder="R"
+                                class="input input-sm"
+                            />
+                            <input
+                                type="number"
+                                v-model.number="scrollConfig.color[1]"
+                                min="0"
+                                max="255"
+                                placeholder="G"
+                                class="input input-sm"
+                            />
+                            <input
+                                type="number"
+                                v-model.number="scrollConfig.color[2]"
+                                min="0"
+                                max="255"
+                                placeholder="B"
+                                class="input input-sm"
+                            />
+                        </div>
+                        <div
+                            class="color-preview"
+                            :style="{
+                                backgroundColor: rgbToHex(scrollConfig.color),
+                            }"
+                        ></div>
+                    </div>
+                </div>
+
+                <!-- Stars App Config -->
+                <div v-else-if="selectedApp === 'stars'" class="config-form">
+                    <div class="form-group">
+                        <label>Spawn Rate:</label>
+                        <input
+                            type="number"
+                            v-model.number="starsConfig.spawn_rate"
+                            min="1"
+                            max="10"
+                            class="input"
+                        />
+                    </div>
+                    <div class="form-group">
+                        <label>Lifetime:</label>
+                        <input
+                            type="number"
+                            v-model.number="starsConfig.lifetime"
+                            min="10"
+                            max="100"
+                            class="input"
+                        />
+                    </div>
+                    <div class="form-group">
+                        <label>FPS:</label>
+                        <input
+                            type="number"
+                            v-model.number="starsConfig.fps"
+                            min="10"
+                            max="120"
+                            class="input"
+                        />
+                    </div>
+                </div>
+
+                <div class="form-actions">
+                    <button @click="switchApp" class="btn btn-primary">
+                        {{
+                            selectedApp === currentApp
+                                ? "Update Config"
+                                : "Switch to App"
+                        }}
+                    </button>
+                </div>
+            </section>
+
+            <!-- Error Display -->
+            <div v-if="error" class="error-banner">
+                {{ error }}
+            </div>
+        </main>
+    </div>
+</template>
+
 <style scoped>
 .app {
     min-height: 100vh;
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    background: linear-gradient(135deg, #e5e7eb 0%, #d1d5db 100%);
     padding: 2rem;
     transition: background 0.3s ease;
 }
 
 .app.dark-theme {
-    background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+    background: linear-gradient(135deg, #111827 0%, #1f2937 100%);
 }
 
 .header {
@@ -604,9 +604,9 @@ section {
 }
 
 .dark-theme section {
-    background: #1e293b;
-    color: #e2e8f0;
-    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+    background: #1f2937;
+    color: #e5e7eb;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.5);
 }
 
 section h2 {
@@ -619,8 +619,8 @@ section h2 {
 }
 
 .dark-theme section h2 {
-    color: #f1f5f9;
-    border-bottom-color: #334155;
+    color: #f9fafb;
+    border-bottom-color: #374151;
 }
 
 .app-display {
@@ -667,8 +667,8 @@ section h2 {
 }
 
 .dark-theme .app-card {
-    background: #0f172a;
-    border-color: #334155;
+    background: #111827;
+    border-color: #374151;
 }
 
 .app-card:hover {
@@ -688,8 +688,8 @@ section h2 {
 }
 
 .dark-theme .app-card.active {
-    border-color: #818cf8;
-    background: #1e293b;
+    border-color: #9ca3af;
+    background: #374151;
 }
 
 .app-icon {
@@ -704,7 +704,7 @@ section h2 {
 }
 
 .dark-theme .app-label {
-    color: #cbd5e1;
+    color: #d1d5db;
 }
 
 .config-form {
@@ -725,7 +725,7 @@ section h2 {
 }
 
 .dark-theme .form-group label {
-    color: #cbd5e1;
+    color: #d1d5db;
 }
 
 .input {
@@ -738,9 +738,9 @@ section h2 {
 }
 
 .dark-theme .input {
-    background: #0f172a;
-    border-color: #334155;
-    color: #e2e8f0;
+    background: #111827;
+    border-color: #4b5563;
+    color: #e5e7eb;
 }
 
 .input:focus {
@@ -750,8 +750,8 @@ section h2 {
 }
 
 .dark-theme .input:focus {
-    border-color: #818cf8;
-    box-shadow: 0 0 0 3px rgba(129, 140, 248, 0.2);
+    border-color: #9ca3af;
+    box-shadow: 0 0 0 3px rgba(156, 163, 175, 0.2);
 }
 
 .input-sm {
@@ -772,7 +772,7 @@ section h2 {
 }
 
 .dark-theme .color-preview {
-    border-color: #334155;
+    border-color: #4b5563;
 }
 
 .form-actions {
@@ -806,11 +806,11 @@ section h2 {
 }
 
 .dark-theme .btn-primary {
-    background: #818cf8;
+    background: #4b5563;
 }
 
 .dark-theme .btn-primary:hover:not(:disabled) {
-    background: #6366f1;
+    background: #374151;
 }
 
 .btn-secondary {
@@ -841,8 +841,8 @@ section h2 {
 }
 
 .dark-theme .error-banner {
-    background: #7f1d1d;
-    border-color: #991b1b;
+    background: #991b1b;
+    border-color: #b91c1c;
     color: #fecaca;
 }
 </style>
