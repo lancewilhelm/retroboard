@@ -9,6 +9,7 @@ const isConnected = ref(false);
 const error = ref(null);
 const isDarkTheme = ref(true); // Default to dark theme
 const lastKnownApp = ref(null);
+const brightness = ref(100); // 0-100
 
 // App Configurations
 const clockConfig = ref({
@@ -262,6 +263,42 @@ async function selectApp(app) {
     }
 }
 
+async function fetchSettings() {
+    try {
+        const response = await fetch(`${API_BASE}/settings`);
+        if (response.ok) {
+            const data = await response.json();
+            brightness.value = data.brightness || 100;
+        }
+    } catch (err) {
+        console.error("Error fetching settings:", err);
+    }
+}
+
+async function updateBrightness() {
+    try {
+        const response = await fetch(`${API_BASE}/settings`, {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+                brightness: brightness.value,
+            }),
+        });
+
+        if (response.ok) {
+            error.value = null;
+        } else {
+            const data = await response.json();
+            error.value = data.error || "Failed to update brightness";
+        }
+    } catch (err) {
+        error.value = "Failed to update settings";
+        console.error("Error updating brightness:", err);
+    }
+}
+
 // Lifecycle
 onMounted(async () => {
     // Load theme preference
@@ -272,6 +309,7 @@ onMounted(async () => {
 
     // Initial fetch
     await fetchApps();
+    await fetchSettings();
 
     // Fetch current app and config on first load
     try {
@@ -540,6 +578,29 @@ onUnmounted(() => {
                         <button @click="switchApp" class="btn btn-primary">
                             Switch to App
                         </button>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Settings -->
+            <section class="settings">
+                <h2>⚙️ Settings</h2>
+                <div class="settings-form">
+                    <div class="form-group">
+                        <label> Brightness: {{ brightness }}% </label>
+                        <input
+                            type="range"
+                            v-model.number="brightness"
+                            @input="updateBrightness"
+                            min="0"
+                            max="100"
+                            class="slider"
+                        />
+                        <div class="brightness-labels">
+                            <span>0%</span>
+                            <span>50%</span>
+                            <span>100%</span>
+                        </div>
                     </div>
                 </div>
             </section>
@@ -834,6 +895,85 @@ section h2 {
     display: flex;
     gap: 1rem;
     margin-top: 1rem;
+}
+
+.settings-form {
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+}
+
+.slider {
+    width: 100%;
+    height: 0.5rem;
+    border-radius: 0.25rem;
+    background: #d1d5db;
+    outline: none;
+    cursor: pointer;
+    -webkit-appearance: none;
+}
+
+.dark-theme .slider {
+    background: #374151;
+}
+
+.slider::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 1.25rem;
+    height: 1.25rem;
+    border-radius: 50%;
+    background: #667eea;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.slider::-webkit-slider-thumb:hover {
+    background: #5568d3;
+    transform: scale(1.1);
+}
+
+.dark-theme .slider::-webkit-slider-thumb {
+    background: #818cf8;
+}
+
+.dark-theme .slider::-webkit-slider-thumb:hover {
+    background: #6366f1;
+}
+
+.slider::-moz-range-thumb {
+    width: 1.25rem;
+    height: 1.25rem;
+    border-radius: 50%;
+    background: #667eea;
+    cursor: pointer;
+    border: none;
+    transition: all 0.2s;
+}
+
+.slider::-moz-range-thumb:hover {
+    background: #5568d3;
+    transform: scale(1.1);
+}
+
+.dark-theme .slider::-moz-range-thumb {
+    background: #818cf8;
+}
+
+.dark-theme .slider::-moz-range-thumb:hover {
+    background: #6366f1;
+}
+
+.brightness-labels {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.75rem;
+    color: #6b7280;
+    margin-top: 0.25rem;
+}
+
+.dark-theme .brightness-labels {
+    color: #9ca3af;
 }
 
 .button-group {

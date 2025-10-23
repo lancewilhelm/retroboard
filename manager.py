@@ -46,6 +46,7 @@ class ApplicationManager:
         self.running = False
         self.state_file = state_file
         self.app_configs: Dict[str, Dict] = {}  # Stores last known config for each app
+        self.settings: Dict = {}  # Stores global settings (brightness, etc.)
 
     def register_app(self, name: str, app_class: Type[MatrixApplication]):
         """
@@ -197,6 +198,15 @@ class ApplicationManager:
                         self.save_state()
                         logger.info(f"Updated config for {app_name}")
 
+                elif action == "settings":
+                    # Update global settings
+                    if "brightness" in command:
+                        brightness = command["brightness"]
+                        self.driver.set_brightness(brightness)
+                        self.settings["brightness"] = brightness
+                        self.save_state()
+                        logger.info(f"Updated brightness to {brightness}")
+
                 elif action == "quit":
                     self.running = False
 
@@ -275,9 +285,15 @@ class ApplicationManager:
 
             last_app = state.get("last_app")
             app_configs = state.get("app_configs", {})
+            settings = state.get("settings", {})
+
+            # Apply settings
+            if "brightness" in settings:
+                self.driver.set_brightness(settings["brightness"])
+                self.settings = settings
 
             logger.info(
-                f"Loaded state: last_app={last_app}, configs for {len(app_configs)} apps"
+                f"Loaded state: last_app={last_app}, configs for {len(app_configs)} apps, settings={settings}"
             )
             return last_app, app_configs
 
@@ -293,7 +309,11 @@ class ApplicationManager:
         Save current state to disk.
         """
         try:
-            state = {"last_app": self.current_app_name, "app_configs": self.app_configs}
+            state = {
+                "last_app": self.current_app_name,
+                "app_configs": self.app_configs,
+                "settings": self.settings,
+            }
 
             with open(self.state_file, "w") as f:
                 json.dump(state, f, indent=2)

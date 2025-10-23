@@ -109,6 +109,30 @@ def create_api(manager):
 
         return jsonify({"success": True, "app": app_name})
 
+    @app.route("/api/settings", methods=["GET"])
+    def get_settings():
+        """Get global settings."""
+        brightness = manager.driver.get_brightness()
+        return jsonify({"brightness": brightness})
+
+    @app.route("/api/settings", methods=["POST"])
+    def update_settings():
+        """Update global settings."""
+        data = request.get_json()
+        if not data:
+            return jsonify({"error": "Missing settings data"}), 400
+
+        # Update brightness if provided
+        if "brightness" in data:
+            brightness = data["brightness"]
+            if not isinstance(brightness, int) or brightness < 0 or brightness > 100:
+                return jsonify({"error": "Brightness must be between 0 and 100"}), 400
+
+            # Queue the settings command
+            manager.queue_command({"action": "settings", "brightness": brightness})
+
+        return jsonify({"success": True})
+
     @app.route("/api/health", methods=["GET"])
     def health():
         """Health check endpoint."""

@@ -156,6 +156,40 @@ Content-Type: application/json
 
 **Note:** This endpoint is maintained for backwards compatibility. Use `POST /api/apps/<app_name>/config` for new implementations.
 
+### Get Settings
+```bash
+GET /api/settings
+```
+
+**Response:**
+```json
+{
+  "brightness": 75
+}
+```
+
+### Update Settings
+```bash
+POST /api/settings
+Content-Type: application/json
+
+{
+  "brightness": 50
+}
+```
+
+**Response:**
+```json
+{
+  "success": true
+}
+```
+
+**Settings:**
+- `brightness` - Display brightness (0-100, default: 100)
+
+**Note:** Settings are persisted to `state.json` and restored on server restart.
+
 ### Health Check
 ```bash
 GET /api/health
@@ -211,6 +245,14 @@ curl -X POST http://localhost:5000/api/stop
 
 # Check health
 curl http://localhost:5000/api/health
+
+# Get settings
+curl http://localhost:5000/api/settings
+
+# Update brightness
+curl -X POST http://localhost:5000/api/settings \
+  -H "Content-Type: application/json" \
+  -d '{"brightness": 50}'
 ```
 
 ### Using Python requests
@@ -237,6 +279,15 @@ requests.post('http://localhost:5000/api/switch', json={
 # Update current app color immediately
 requests.post('http://localhost:5000/api/apps/scroll_text/config', json={
     'color': [0, 255, 0]
+})
+
+# Get settings
+response = requests.get('http://localhost:5000/api/settings')
+print(response.json())
+
+# Update brightness
+requests.post('http://localhost:5000/api/settings', json={
+    'brightness': 75
 })
 ```
 
