@@ -1,0 +1,2 @@
+# Matrix Application Server Dependencies
+flask>=2.0.0

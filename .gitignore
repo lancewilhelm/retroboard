@@ -1,0 +1,175 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+pip-wheel-metadata/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# Virtual Environment
+venv/
+ENV/
+env/
+.venv
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+.hypothesis/
+
+# Logs
+*.log
+logs/
+
+# Environment variables
+.env
+.env.local
+
+# Jupyter Notebook
+.ipynb_checkpoints
+
+# mypy
+.mypy_cache/
+.dmypy.json
+dmypy.json
+
+# Pyre type checker
+.pyre/
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Thumbnails
+._*
+
+# Files that might appear in the root of a volume
+.DocumentRevisions-V100
+.fseventsd
+.Spotlight-V100
+.TemporaryItems
+.Trashes
+.VolumeIcon.icns
+.com.apple.timemachine.donotpresent
+
+# Directories potentially created on remote AFP share
+.AppleDB
+.AppleDesktop
+Network Trash Folder
+Temporary Items
+.afile
+
+# Linux
+*~
+.fuse_hidden*
+.directory
+.Trash-*
+.nfs*
+
+# Windows
+Thumbs.db
+Thumbs.db:encryptable
+ehthumbs.db
+ehthumbs_vista.db
+*.stackdump
+[Dd]esktop.ini
+$RECYCLE.BIN/
+*.cab
+*.msi
+*.msix
+*.msm
+*.msp
+*.lnk
+
+# Project Specific
+
+# Matrix library build artifacts (keep the library itself)
+rpi-rgb-led-matrix/*.o
+rpi-rgb-led-matrix/lib/*.o
+rpi-rgb-led-matrix/lib/*.a
+
+# Compiled C++ extensions
+*.so
+
+# Test artifacts
+test_output/
+*.test.log
+
+# Temporary files from testing
+test_*.txt
+temp_*.py
+
+# Flask session files
+flask_session/
+instance/
+
+# App-specific temporary data
+apps/*/temp/
+apps/*/*.log
+apps/*/cache/
+
+# User-created apps (optional - comment out if you want to track custom apps)
+# apps/*/
+# !apps/clock/
+# !apps/scroll_text/
+# !apps/stars/
+# !apps/base.py
+# !apps/__init__.py
+# !apps/README.md
+
+# Backup files
+*.bak
+*.backup
+*~
+
+# Database files (if you add any)
+*.db
+*.sqlite
+*.sqlite3
+
+# Configuration files with secrets
+config.local.py
+secrets.json
+.secrets
+
+# Documentation build artifacts
+docs/_build/
+docs/.doctrees/
+
+# Coverage reports
+.coverage
+coverage.xml
+*.cover
+
+# Profiling data
+*.prof
+*.lprof
+
