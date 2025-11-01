@@ -8,9 +8,10 @@ The web interface allows you to:
 - Switch between available applications
 - Configure app settings in real-time without interference
 - Configure carousel mode to automatically rotate through apps
-- View live connection status
+- View live connection status via WebSocket
 - Control the display from any device on your network
 - Toggle between dark and light themes
+- Receive real-time updates without polling
 
 ## Architecture
 
@@ -18,21 +19,27 @@ The web interface allows you to:
 
 - **Vue 3**: Modern reactive framework with Composition API
 - **Vite**: Fast build tool and development server
+- **Socket.IO Client**: WebSocket library for real-time communication
 - **Vanilla CSS**: Simple, responsive styling without external dependencies
 
 ### Communication Flow
 
 ```
 Browser (Port 3000)
-    ↓ HTTP Requests
+    ↓ HTTP POST (Commands) + WebSocket (Real-time Updates)
 Vite Dev Server (Port 3000)
-    ↓ Proxy /api/* requests
-Flask API Server (Port 5000)
-    ↓ Command Queue
+    ↓ Proxy /api/* and WebSocket
+Flask-SocketIO Server (Port 5000)
+    ↓ Command Queue + Event Emission
 Application Manager
-    ↓ Controls
+    ↓ Controls + State Change Events
 LED Matrix Driver
 ```
+
+**Architecture:**
+- **Commands** (switch app, update config) → REST API (POST)
+- **Real-time updates** (app changes, settings) → WebSocket events
+- **No polling** - Server pushes updates when state changes
 
 ## Installation
 
@@ -41,10 +48,16 @@ LED Matrix Driver
 - Node.js 16+ or 18+
 - pnpm package manager
 - RetroBoard server running
+- Python packages: `flask-socketio`, `python-socketio` (see requirements.txt)
 
 ### Setup
 
 ```bash
+# Install Python dependencies (if not already done)
+cd retroboard
+pip install -r requirements.txt
+
+# Install web dependencies
 cd web
 pnpm install
 ```
@@ -155,20 +168,34 @@ Each app has its own configuration form that appears when selected:
 
 ### Real-time Updates
 
-The interface intelligently polls the API every 2 seconds to:
-- Monitor which app is currently running
-- Detect if the app was changed externally (via API or curl)
-- Check connection health
+The interface uses **WebSocket** for real-time bidirectional communication:
+- Instantly notified when apps switch
+- Immediate updates when settings change
+- Live carousel rotation updates
+- Automatic reconnection on network issues
+- **No polling** - updates only when state changes
 
-**Important:** Configuration values are NOT automatically refreshed during polling. This prevents the interface from overwriting your edits while you're configuring an app.
+**How it works:**
+1. Browser connects via WebSocket on page load
+2. Server sends initial state immediately
+3. Server pushes updates when state changes (app switch, config update, etc.)
+4. Browser receives and displays updates in real-time
 
-### Manual Config Refresh
+**Benefits:**
+- Lower latency (no 2-second delay)
+- Reduced server load (no constant polling)
+- More efficient bandwidth usage
+- Better user experience
 
-Click the "🔄 Refresh" button next to "Stop App" to manually reload the current configuration from the server. Use this when:
-- You switched apps via the API and want to see the server's config
+### Manual State Refresh
+
+Click the "🔄 Refresh" button next to "Stop App" to manually request the complete state from the server via WebSocket. Use this when:
+- You want to ensure you have the latest state
+- You suspect the connection may have missed an update
 - You want to reset your local changes to match what's running
-- Another user/client changed the config
-- You suspect the config is out of sync
+- Multiple users are controlling the display
+
+Note: With WebSocket, manual refresh is rarely needed as updates arrive automatically.
 
 ### Connection Status
 
@@ -178,20 +205,39 @@ The header displays a live connection indicator:
 
 ## API Integration
 
-The web interface communicates with the RetroBoard server through these endpoints:
+The web interface uses a hybrid approach for optimal performance:
+
+### REST API (Commands)
 
 | Endpoint | Method | Purpose |
 |----------|--------|---------|
-| `/api/apps` | GET | List available applications |
-| `/api/current` | GET | Get current app and configuration |
+| `/api/apps` | GET | List available applications (initial load) |
+| `/api/current` | GET | Get current app and configuration (fallback) |
 | `/api/switch` | POST | Switch to a different app |
 | `/api/stop` | POST | Stop the current app |
 | `/api/config` | POST | Update app configuration |
-| `/api/carousel` | GET | Get carousel configuration |
+| `/api/carousel` | GET | Get carousel configuration (initial load) |
 | `/api/carousel` | POST | Update carousel configuration |
-| `/api/health` | GET | Check server health |
+| `/api/settings` | POST | Update settings (brightness) |
 
-See [API.md](API.md) for complete API documentation.
+### WebSocket Events (Real-time Updates)
+
+| Event | Direction | Purpose |
+|-------|-----------|---------|
+| `connect` | Client → Server | Establish connection |
+| `disconnect` | Client → Server | Connection lost |
+| `request_state` | Client → Server | Request complete state |
+| `apps_list` | Server → Client | Available apps and current app |
+| `current_app` | Server → Client | App changed or config updated |
+| `settings` | Server → Client | Settings changed (brightness) |
+| `carousel_config` | Server → Client | Carousel configuration changed |
+
+**Pattern:**
+- **Commands**: Use REST POST endpoints
+- **Updates**: Receive via WebSocket events
+- **Initial load**: REST API for fallback, WebSocket for real-time
+
+See [API.md](API.md) for complete API and WebSocket documentation.
 
 ## Configuration
 
@@ -419,10 +465,11 @@ Modern browser features used:
 
 ## Performance
 
-- **Bundle Size**: ~50KB gzipped (production)
+- **Bundle Size**: ~60KB gzipped (production, includes Socket.IO client)
 - **Initial Load**: <1s on modern browsers
-- **API Polling**: Every 2 seconds (minimal overhead)
-- **Memory Usage**: ~10MB typical
+- **Connection**: Persistent WebSocket (no polling overhead)
+- **Memory Usage**: ~12MB typical (includes WebSocket connection)
+- **Bandwidth**: Minimal - only updates when state changes
 
 ## Security Considerations
 
@@ -434,9 +481,9 @@ Modern browser features used:
 
 Planned features:
 - [x] Dark mode toggle (implemented!)
-- [x] Smart polling that doesn't interfere with editing (implemented!)
+- [x] Smart state management that doesn't interfere with editing (implemented!)
 - [x] Carousel mode controls (implemented!)
-- [ ] WebSocket support for real-time updates without polling
+- [x] WebSocket support for real-time updates without polling (implemented!)
 - [ ] Enhanced visual color picker component (HTML5 color input)
 - [ ] Live preview/thumbnail of display
 - [ ] Preset management (save/load favorites)
@@ -452,13 +499,16 @@ Planned features:
 
 Vite provides instant HMR. Changes to `App.vue` or `style.css` will update in the browser without a full reload.
 
+Note: HMR will disconnect and reconnect the WebSocket automatically.
+
 ### Vue DevTools
 
 Install the Vue DevTools browser extension for debugging:
 - Inspect component state
 - View reactive data
-- Track API calls
+- Track API calls and WebSocket events
 - Monitor performance
+- View WebSocket connection status
 
 ### API Testing
 
@@ -487,10 +537,43 @@ When modifying the web interface:
 5. Test on multiple browsers
 6. Update this documentation
 
+## WebSocket Connection Details
+
+### Connection Lifecycle
+
+1. **Page Load**: Automatically connects to WebSocket
+2. **Connected**: Server sends initial state (`apps_list`, `current_app`, `settings`, `carousel_config`)
+3. **Running**: Receives updates as they happen
+4. **Disconnected**: Automatically attempts to reconnect
+5. **Reconnected**: Requests fresh state to resync
+
+### Reconnection Strategy
+
+Socket.IO handles reconnection automatically:
+- Exponential backoff on connection failures
+- Automatic retry with increasing intervals
+- UI shows connection status (green/red dot)
+- State resync on successful reconnection
+
+### Development Tips
+
+```javascript
+// Check WebSocket status in browser console
+socket.connected // true or false
+
+// Manual state request
+socket.emit('request_state')
+
+// Listen to all events for debugging
+socket.onAny((event, ...args) => {
+  console.log('WebSocket event:', event, args);
+});
+```
+
 ## Related Documentation
 
 - [README.md](../README.md) - Main project documentation
-- [API.md](API.md) - API reference
+- [API.md](API.md) - Complete API and WebSocket reference
 - [SERVER.md](SERVER.md) - Server configuration
 - [APPS.md](APPS.md) - Creating custom applications
 - [web/README.md](../web/README.md) - Web interface quick start

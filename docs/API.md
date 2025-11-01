@@ -1,6 +1,6 @@
 # Matrix Server API Documentation
 
-The Matrix Server provides an HTTP API for controlling LED matrix applications.
+The Matrix Server provides an HTTP REST API and WebSocket support for controlling LED matrix applications in real-time.
 
 ## Starting the Server
 
@@ -264,6 +264,166 @@ GET /api/health
 }
 ```
 
+## WebSocket Support
+
+The server provides real-time WebSocket communication for instant updates without polling.
+
+### Connection
+
+Connect to the WebSocket endpoint at the same host and port as the REST API:
+
+```javascript
+import { io } from 'socket.io-client';
+
+const socket = io('http://localhost:5000');
+```
+
+### Client Events (Emitted by Client)
+
+#### connect
+Automatically emitted when connection is established. Server responds with initial state.
+
+#### disconnect
+Automatically emitted when connection is lost.
+
+#### request_state
+Request complete current state from server.
+
+```javascript
+socket.emit('request_state');
+```
+
+### Server Events (Received by Client)
+
+#### apps_list
+List of available apps and current app.
+
+```javascript
+socket.on('apps_list', (data) => {
+  console.log('Apps:', data.apps);
+  console.log('Current:', data.current);
+});
+```
+
+**Data:**
+```json
+{
+  "apps": ["clock", "scroll_text", "stars"],
+  "current": "clock"
+}
+```
+
+#### current_app
+Current app name and configuration. Emitted when app switches or config changes.
+
+```javascript
+socket.on('current_app', (data) => {
+  console.log('App:', data.app);
+  console.log('Config:', data.config);
+});
+```
+
+**Data:**
+```json
+{
+  "app": "clock",
+  "config": {
+    "font": "tom-thumb",
+    "color": [255, 0, 0]
+  }
+}
+```
+
+#### settings
+Global settings changes (brightness, etc.).
+
+```javascript
+socket.on('settings', (data) => {
+  console.log('Brightness:', data.brightness);
+});
+```
+
+**Data:**
+```json
+{
+  "brightness": 75
+}
+```
+
+#### carousel_config
+Carousel configuration updates.
+
+```javascript
+socket.on('carousel_config', (data) => {
+  console.log('Enabled:', data.enabled);
+  console.log('Apps:', data.apps);
+});
+```
+
+**Data:**
+```json
+{
+  "enabled": true,
+  "apps": [
+    {"app": "clock", "duration": 10},
+    {"app": "scroll_text", "duration": 15}
+  ],
+  "current_index": 0
+}
+```
+
+### WebSocket Example
+
+```javascript
+import { io } from 'socket.io-client';
+
+const socket = io('http://localhost:5000');
+
+socket.on('connect', () => {
+  console.log('Connected to RetroBoard');
+  socket.emit('request_state');
+});
+
+socket.on('current_app', (data) => {
+  console.log(`Now showing: ${data.app}`);
+});
+
+socket.on('settings', (data) => {
+  console.log(`Brightness: ${data.brightness}%`);
+});
+
+socket.on('carousel_config', (data) => {
+  if (data.enabled) {
+    console.log(`Carousel active with ${data.apps.length} apps`);
+  }
+});
+```
+
+### Benefits of WebSocket
+
+- **Real-time updates** - No polling required
+- **Lower latency** - Instant notification of changes
+- **Reduced bandwidth** - Only send data when needed
+- **Bidirectional** - Server can push updates to clients
+- **Efficient** - Persistent connection eliminates HTTP overhead
+
+### REST + WebSocket Pattern
+
+Use REST endpoints for commands (POST/PUT) and WebSocket for real-time state updates:
+
+```javascript
+// Send commands via REST
+await fetch('/api/switch', {
+  method: 'POST',
+  body: JSON.stringify({ app: 'clock' })
+});
+
+// Receive updates via WebSocket
+socket.on('current_app', (data) => {
+  // Update UI immediately
+});
+```
+
 ## Usage Examples
 
 ### Using curl
@@ -369,6 +529,28 @@ print(response.json())
 requests.post('http://localhost:5000/api/settings', json={
     'brightness': 75
 })
+
+# WebSocket example
+import socketio
+
+sio = socketio.Client()
+
+@sio.on('connect')
+def on_connect():
+    print('Connected to RetroBoard')
+    sio.emit('request_state')
+
+@sio.on('current_app')
+def on_current_app(data):
+    print(f"Now showing: {data['app']}")
+
+@sio.on('settings')
+def on_settings(data):
+    print(f"Brightness: {data['brightness']}%")
+
+sio.connect('http://localhost:5000')
+sio.wait()
+```
 
 # Get carousel configuration
 response = requests.get('http://localhost:5000/api/carousel')
@@ -579,4 +761,5 @@ curl -X POST http://localhost:5000/api/carousel \
 Planned features:
 - Scheduling (run different apps at different times)
 - Presets (save favorite configurations)
+- Enhanced WebSocket events (app lifecycle, errors, logs)
 - WebSocket support for real-time updates

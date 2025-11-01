@@ -1,11 +1,12 @@
 """
 HTTP API for controlling the LED matrix.
 
-Provides REST endpoints to switch applications and manage the matrix.
+Provides REST endpoints and WebSocket support for real-time communication.
 """
 
 from flask import Flask, jsonify, request
 from flask_cors import CORS
+from flask_socketio import SocketIO, emit
 import logging
 
 logger = logging.getLogger(__name__)
@@ -13,18 +14,31 @@ logger = logging.getLogger(__name__)
 
 def create_api(manager):
     """
-    Create and configure the Flask API.
+    Create and configure the Flask API with WebSocket support.
 
     Args:
         manager: ApplicationManager instance
 
     Returns:
-        Flask app instance
+        Tuple of (Flask app instance, SocketIO instance)
     """
     app = Flask(__name__)
 
     # Enable CORS for web application
     CORS(app, resources={r"/api/*": {"origins": "*"}})
+
+    # Initialize SocketIO with CORS support
+    socketio = SocketIO(
+        app,
+        cors_allowed_origins="*",
+        async_mode="threading",
+        # Engineio settings
+        engineio_logger=False,
+        logger=False,
+    )
+
+    # Store socketio reference in manager for emitting events
+    manager.socketio = socketio
 
     @app.route("/api/apps", methods=["GET"])
     def list_apps():
@@ -192,8 +206,59 @@ def create_api(manager):
             }
         )
 
+    # WebSocket Events
+    @socketio.on("connect")
+    def handle_connect():
+        """Handle client connection."""
+        logger.info("Client connected via WebSocket")
+
+        # Send initial state to newly connected client
+        emit(
+            "apps_list",
+            {
+                "apps": manager.get_available_apps(),
+                "current": manager.get_current_app_name(),
+            },
+        )
+
+        # Send current app config
+        current = manager.get_current_app_name()
+        if current:
+            config = manager.current_app.get_config() if manager.current_app else {}
+            emit("current_app", {"app": current, "config": config})
+
+        # Send settings
+        emit("settings", {"brightness": manager.driver.get_brightness()})
+
+        # Send carousel config
+        emit("carousel_config", manager.get_carousel_config())
+
+    @socketio.on("disconnect")
+    def handle_disconnect():
+        """Handle client disconnection."""
+        logger.info("Client disconnected from WebSocket")
+
+    @socketio.on("request_state")
+    def handle_request_state():
+        """Handle request for complete state."""
+        emit(
+            "apps_list",
+            {
+                "apps": manager.get_available_apps(),
+                "current": manager.get_current_app_name(),
+            },
+        )
+
+        current = manager.get_current_app_name()
+        if current:
+            config = manager.current_app.get_config() if manager.current_app else {}
+            emit("current_app", {"app": current, "config": config})
+
+        emit("settings", {"brightness": manager.driver.get_brightness()})
+        emit("carousel_config", manager.get_carousel_config())
+
     # Disable Flask's default logging for cleaner output
     log = logging.getLogger("werkzeug")
     log.setLevel(logging.ERROR)
 
-    return app
+    return app, socketio

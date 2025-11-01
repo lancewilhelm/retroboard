@@ -1,3 +1,5 @@
 # Matrix Application Server Dependencies
 flask>=2.0.0
 flask-cors>=3.0.0
+flask-socketio>=5.3.0
+python-socketio>=5.9.0

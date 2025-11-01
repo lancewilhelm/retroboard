@@ -1,5 +1,6 @@
 <script setup>
 import { ref, onMounted, onUnmounted, watch } from "vue";
+import { io } from "socket.io-client";
 
 // State
 const availableApps = ref([]);
@@ -36,8 +37,8 @@ const starsConfig = ref({
     fps: 60,
 });
 
-// Polling interval reference
-let pollInterval = null;
+// WebSocket connection
+let socket = null;
 
 // API Base URL
 const API_BASE = "/api";
@@ -81,7 +82,93 @@ function toggleTheme() {
     );
 }
 
-// API Functions
+// WebSocket Functions
+function initializeWebSocket() {
+    // Connect to WebSocket server through the proxy
+    // Use polling as primary transport for reliability through Vite proxy
+    socket = io({
+        transports: ["polling", "websocket"],
+        upgrade: true,
+        reconnection: true,
+        reconnectionDelay: 1000,
+        reconnectionDelayMax: 5000,
+        reconnectionAttempts: Infinity,
+        timeout: 20000,
+        forceNew: false,
+        multiplex: true,
+    });
+
+    socket.on("connect", () => {
+        const transport = socket.io.engine.transport.name;
+        console.log(`Connected via ${transport}`);
+        isConnected.value = true;
+        error.value = null;
+        // Request initial state
+        socket.emit("request_state");
+    });
+
+    socket.on("disconnect", () => {
+        console.log("WebSocket disconnected");
+        isConnected.value = false;
+    });
+
+    socket.on("connect_error", (err) => {
+        console.error("WebSocket connection error:", err);
+        isConnected.value = false;
+        error.value = "Failed to connect to RetroBoard server";
+    });
+
+    socket.on("reconnect_attempt", (attemptNumber) => {
+        console.log(`Reconnection attempt ${attemptNumber}...`);
+    });
+
+    socket.on("reconnect", (attemptNumber) => {
+        console.log(`Reconnected after ${attemptNumber} attempts`);
+        isConnected.value = true;
+        error.value = null;
+    });
+
+    socket.on("reconnect_failed", () => {
+        console.error("Failed to reconnect to server");
+        error.value = "Unable to reconnect to RetroBoard server";
+    });
+
+    // Listen for app list updates
+    socket.on("apps_list", (data) => {
+        availableApps.value = data.apps;
+        currentApp.value = data.current;
+    });
+
+    // Listen for current app changes
+    socket.on("current_app", (data) => {
+        // Only update config if app changed
+        if (data.app !== lastKnownApp.value) {
+            lastKnownApp.value = data.app;
+            currentApp.value = data.app;
+            if (data.config) {
+                updateConfigFromServer(data.app, data.config);
+            }
+        } else {
+            // Just update the current app name
+            currentApp.value = data.app;
+        }
+    });
+
+    // Listen for settings changes
+    socket.on("settings", (data) => {
+        if (data.brightness !== undefined) {
+            brightness.value = data.brightness;
+        }
+    });
+
+    // Listen for carousel config changes
+    socket.on("carousel_config", (data) => {
+        carouselEnabled.value = data.enabled || false;
+        carouselApps.value = data.apps || [];
+    });
+}
+
+// API Functions (still used for POST requests)
 async function fetchApps() {
     try {
         const response = await fetch(`${API_BASE}/apps`);
@@ -94,27 +181,6 @@ async function fetchApps() {
         error.value = "Failed to connect to RetroBoard server";
         isConnected.value = false;
         console.error("Error fetching apps:", err);
-    }
-}
-
-async function fetchCurrentAppOnly() {
-    try {
-        const response = await fetch(`${API_BASE}/current`);
-        const data = await response.json();
-
-        // Only update the current app name, not the config
-        // This prevents overwriting user edits
-        currentApp.value = data.app;
-        isConnected.value = true;
-
-        // If the app changed (e.g., switched via API), update config
-        if (data.app !== lastKnownApp.value) {
-            lastKnownApp.value = data.app;
-            updateConfigFromServer(data.app, data.config);
-        }
-    } catch (err) {
-        isConnected.value = false;
-        console.error("Error fetching current app:", err);
     }
 }
 
@@ -317,6 +383,12 @@ async function fetchCarousel() {
     }
 }
 
+function requestStateUpdate() {
+    if (socket && socket.connected) {
+        socket.emit("request_state");
+    }
+}
+
 async function updateCarousel() {
     try {
         const response = await fetch(`${API_BASE}/carousel`, {
@@ -372,7 +444,10 @@ onMounted(async () => {
         isDarkTheme.value = savedTheme === "dark";
     }
 
-    // Initial fetch
+    // Initialize WebSocket connection
+    initializeWebSocket();
+
+    // Fallback: fetch initial state via REST if WebSocket takes time to connect
     await fetchApps();
     await fetchSettings();
     await fetchCarousel();
@@ -390,17 +465,12 @@ onMounted(async () => {
     } catch (err) {
         console.error("Error fetching initial config:", err);
     }
-
-    // Poll only for app name changes, not config
-    // This prevents overwriting user edits
-    pollInterval = setInterval(async () => {
-        await fetchCurrentAppOnly();
-    }, 2000);
 });
 
 onUnmounted(() => {
-    if (pollInterval) {
-        clearInterval(pollInterval);
+    // Disconnect WebSocket when component unmounts
+    if (socket) {
+        socket.disconnect();
     }
 });
 </script>
@@ -432,10 +502,10 @@ onUnmounted(() => {
                     <div class="app-name">{{ currentApp || "None" }}</div>
                     <div class="app-actions">
                         <button
-                            @click="refreshConfig"
+                            @click="requestStateUpdate"
                             class="btn btn-secondary"
-                            :disabled="!currentApp"
-                            title="Refresh config from server"
+                            :disabled="!isConnected"
+                            title="Refresh state from server"
                         >
                             🔄 Refresh
                         </button>

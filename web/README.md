@@ -8,28 +8,35 @@ A simple Vue 3 web application for controlling the RetroBoard LED matrix display
 - 🔄 Switch between available applications (clock, scroll_text, stars)
 - ⚙️ Configure app settings in real-time
 - 🎨 Color picker for RGB values
-- 📊 Live connection status
+- 📊 Live connection status via WebSocket
 - 🔴 Stop running applications
 - 🌓 Dark/Light theme toggle
-- 🔄 Manual config refresh (no auto-polling interference)
+- ⚡ Real-time updates without polling
+- 🔄 Carousel mode for automatic app rotation
 
 ## Prerequisites
 
 - Node.js 16+ or 18+
 - pnpm package manager
-- RetroBoard server running (see main project README)
+- RetroBoard server running with WebSocket support (see main project README)
 
 ## Installation
 
-1. Navigate to the web directory:
+1. Install Python dependencies (if not already done):
 ```bash
-cd web
+cd retroboard
+pip install -r requirements.txt
 ```
 
-2. Install dependencies:
+This installs Flask-SocketIO for WebSocket support.
+
+2. Navigate to the web directory and install dependencies:
 ```bash
+cd web
 pnpm install
 ```
+
+This installs Vue 3 and Socket.IO client.
 
 ## Development
 
@@ -50,7 +57,9 @@ pnpm run dev
 
 3. Open your browser to [http://localhost:3000](http://localhost:3000)
 
-The web app will automatically proxy API requests to the RetroBoard server running on port 5000.
+The web app will automatically:
+- Proxy API requests to the RetroBoard server running on port 5000
+- Connect to WebSocket for real-time updates
 
 ## Building for Production
 
@@ -78,7 +87,7 @@ Click the moon 🌙 or sun ☀️ icon in the header to switch between dark and 
 2. Configure the app settings in the form below
 3. Click "Switch to App" to activate it
 
-**Note:** The interface monitors which app is running but does NOT automatically overwrite your config changes. Edit freely without interference!
+**Note:** The interface uses WebSocket to receive real-time updates but does NOT automatically overwrite your config changes. Edit freely without interference!
 
 ### Configuring Apps
 
@@ -100,12 +109,14 @@ Click the moon 🌙 or sun ☀️ icon in the header to switch between dark and 
 
 ### Updating Running App
 
-If an app is already running, modify its configuration and click "Update Config" to apply changes **smoothly without restarting the app**. The interface intelligently uses the `/api/config` endpoint to update settings on-the-fly, preventing any jarring visual interruption.
+If an app is already running, modify its configuration and click "Update Config" to apply changes **smoothly without restarting the app**. The interface intelligently uses the `/api/config` endpoint to update settings on-the-fly, preventing any jarring visual interruption. Updates are confirmed instantly via WebSocket.
 
-**Refresh Config:** Click the "🔄 Refresh" button to reload the current configuration from the server. This is useful if:
-- You switched apps via the API/curl and want to see the server's config
-- You want to reset your local changes to match what's running
-- Another user changed the config
+**Refresh State:** Click the "🔄 Refresh" button to request the complete current state from the server via WebSocket. This is useful if:
+- You want to ensure you have the latest state
+- You suspect a WebSocket update may have been missed
+- Multiple users are controlling the display
+
+Note: With WebSocket, manual refresh is rarely needed as updates arrive automatically in real-time.
 
 ### Stopping Apps
 
@@ -115,20 +126,29 @@ Click the "Stop App" button to clear the display and stop the current applicatio
 
 - **Vue 3**: Modern reactive framework with Composition API
 - **Vite**: Fast build tool and dev server
-- **API Proxy**: Development server proxies `/api` requests to port 5000
+- **Socket.IO Client**: WebSocket library for real-time communication
+- **API Proxy**: Development server proxies `/api` requests and WebSocket to port 5000
+
+### Communication Pattern
+
+- **Commands** (switch app, update config) → REST API POST requests
+- **Real-time updates** (app changes, settings) → WebSocket events
+- **No polling** - Server pushes updates when state changes
 
 ## Troubleshooting
 
 ### Cannot connect to server
 - Ensure the RetroBoard server is running on port 5000
 - Check that the server is accessible at `http://localhost:5000/api/health`
+- Verify WebSocket connection in browser console: "WebSocket connected"
+- Check server logs for "Client connected via WebSocket"
 
 ### App not updating
-- The web interface polls for the current app name every 2 seconds
-- Config is NOT auto-refreshed to prevent overwriting your edits
-- Click "🔄 Refresh" to manually reload config from server
-- Check browser console for errors
-- Verify the server is responding to API requests
+- Check the connection indicator (should be green)
+- Open browser console and look for WebSocket errors
+- Verify the server has `flask-socketio` installed
+- Click "🔄 Refresh" to manually request state update
+- WebSocket automatically reconnects if disconnected
 
 ### Configuration not applying
 - Make sure you click "Switch to App" or "Update Config" after changing values
@@ -137,27 +157,35 @@ Click the "Stop App" button to clear the display and stop the current applicatio
 - Color values must be integers between 0-255
 - Speed and FPS values have minimum/maximum limits
 
-## API Endpoints Used
+## Communication
 
-The web app communicates with these RetroBoard API endpoints:
+The web app uses a hybrid REST + WebSocket approach:
 
-- `GET /api/apps` - List available applications
-- `GET /api/current` - Get current app and config
+### REST API (Commands)
+- `GET /api/apps` - List available applications (initial load)
 - `POST /api/switch` - Switch to a different app
 - `POST /api/stop` - Stop current app
 - `POST /api/config` - Update app configuration
+- `POST /api/carousel` - Update carousel configuration
+- `POST /api/settings` - Update settings (brightness)
 
-See the main project's `docs/API.md` for full API documentation.
+### WebSocket Events (Real-time Updates)
+- `current_app` - App changed or config updated
+- `apps_list` - Available apps list
+- `settings` - Settings changed
+- `carousel_config` - Carousel configuration updated
+
+See the main project's `docs/API.md` for full API and WebSocket documentation.
 
 ## Future Enhancements
 
 Potential improvements:
 - ✅ Dark mode toggle (implemented!)
-- WebSocket support for real-time updates
+- ✅ WebSocket support for real-time updates (implemented!)
+- ✅ Carousel mode controls (implemented!)
 - Preset configurations (save/load favorites)
 - Enhanced color picker UI component
 - Preview/thumbnail of running app
 - Keyboard shortcuts
-- Carousel mode controls
 - Schedule/timer functionality
-- Multi-user change notifications
+- Enhanced WebSocket events (logs, errors)

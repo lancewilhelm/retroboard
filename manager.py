@@ -55,6 +55,9 @@ class ApplicationManager:
         self.carousel_timer = 0
         self.last_carousel_time = time.time()
 
+        # WebSocket support (set by API)
+        self.socketio = None
+
     def register_app(self, name: str, app_class: Type[MatrixApplication]):
         """
         Register an application.
@@ -92,6 +95,10 @@ class ApplicationManager:
             self.current_app.setup()
             self.current_app_name = name
             logger.info(f"Started app: {name}")
+
+            # Emit WebSocket event
+            self._emit_current_app()
+
             return True
 
         except Exception as e:
@@ -126,6 +133,9 @@ class ApplicationManager:
                     self.current_app = None
                     self.current_app_name = None
                     self.save_state()
+
+                    # Emit WebSocket event
+                    self._emit_current_app()
                 else:
                     # Shutdown - just clean up, don't clear app name or save
                     self.current_app = None
@@ -201,6 +211,9 @@ class ApplicationManager:
                             for key, value in config.items():
                                 self.current_app.update_config(key, value)
 
+                            # Emit WebSocket event for current app config change
+                            self._emit_current_app()
+
                         # Save state
                         self.save_state()
                         logger.info(f"Updated config for {app_name}")
@@ -213,6 +226,9 @@ class ApplicationManager:
                         self.settings["brightness"] = brightness
                         self.save_state()
                         logger.info(f"Updated brightness to {brightness}")
+
+                        # Emit WebSocket event
+                        self._emit_settings()
 
                 elif action == "carousel":
                     # Update carousel settings
@@ -235,6 +251,9 @@ class ApplicationManager:
                         logger.info("Carousel mode disabled")
 
                     self.save_state()
+
+                    # Emit WebSocket event
+                    self._emit_carousel_config()
 
                 elif action == "quit":
                     self.running = False
@@ -285,6 +304,9 @@ class ApplicationManager:
                         )
                         self.start_app(next_app, config)
                         self.last_carousel_time = current_time
+
+                        # Emit carousel status update
+                        self._emit_carousel_config()
 
                 # Run current app if one is active
                 if self.current_app:
@@ -429,3 +451,38 @@ class ApplicationManager:
                 "apps": apps,
             }
         )
+
+    def _emit_current_app(self):
+        """Emit current app state via WebSocket."""
+        if self.socketio:
+            try:
+                config = self.current_app.get_config() if self.current_app else {}
+                self.socketio.emit(
+                    "current_app",
+                    {"app": self.current_app_name, "config": config},
+                    namespace="/",
+                )
+            except Exception as e:
+                logger.debug(f"Failed to emit current_app event: {e}")
+
+    def _emit_settings(self):
+        """Emit settings via WebSocket."""
+        if self.socketio:
+            try:
+                self.socketio.emit(
+                    "settings",
+                    {"brightness": self.driver.get_brightness()},
+                    namespace="/",
+                )
+            except Exception as e:
+                logger.debug(f"Failed to emit settings event: {e}")
+
+    def _emit_carousel_config(self):
+        """Emit carousel config via WebSocket."""
+        if self.socketio:
+            try:
+                self.socketio.emit(
+                    "carousel_config", self.get_carousel_config(), namespace="/"
+                )
+            except Exception as e:
+                logger.debug(f"Failed to emit carousel_config event: {e}")

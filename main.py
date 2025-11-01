@@ -125,11 +125,17 @@ def main():
     # Start the selected application
     manager.start_app(app_to_start, config_to_use)
 
-    # Create and start the API server in a separate thread
-    logger.info(f"Starting API server on {args.host}:{args.port}")
-    api_app = create_api(manager)
+    # Create and start the API server with WebSocket support in a separate thread
+    logger.info(f"Starting API server with WebSocket on {args.host}:{args.port}")
+    api_app, socketio = create_api(manager)
     api_thread = threading.Thread(
-        target=lambda: api_app.run(host=args.host, port=args.port, debug=False),
+        target=lambda: socketio.run(
+            api_app,
+            host=args.host,
+            port=args.port,
+            debug=False,
+            allow_unsafe_werkzeug=True,
+        ),
         daemon=True,
     )
     api_thread.start()
@@ -137,6 +143,7 @@ def main():
     logger.info("=" * 60)
     logger.info("Matrix Server is running!")
     logger.info(f"API available at: http://{args.host}:{args.port}")
+    logger.info(f"WebSocket available at: ws://{args.host}:{args.port}")
     logger.info(f"Available apps: {', '.join(apps.keys())}")
     logger.info("")
     logger.info("API Endpoints:")
@@ -146,6 +153,11 @@ def main():
     logger.info("  POST /api/stop      - Stop current app")
     logger.info("  POST /api/config    - Update app config")
     logger.info("  GET  /api/health    - Health check")
+    logger.info("")
+    logger.info("WebSocket Events:")
+    logger.info("  current_app         - App changes")
+    logger.info("  settings            - Settings changes")
+    logger.info("  carousel_config     - Carousel updates")
     logger.info("=" * 60)
     logger.info("Press Ctrl+C to stop")
     logger.info("")
