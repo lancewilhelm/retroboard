@@ -133,6 +133,54 @@ def create_api(manager):
 
         return jsonify({"success": True})
 
+    @app.route("/api/carousel", methods=["GET"])
+    def get_carousel():
+        """Get carousel configuration."""
+        return jsonify(manager.get_carousel_config())
+
+    @app.route("/api/carousel", methods=["POST"])
+    def update_carousel():
+        """Update carousel configuration."""
+        data = request.get_json()
+        if not data:
+            return jsonify({"error": "Missing carousel data"}), 400
+
+        enabled = data.get("enabled", False)
+        apps = data.get("apps", [])
+
+        # Validate apps list
+        if enabled and not apps:
+            return jsonify({"error": "Carousel enabled but no apps specified"}), 400
+
+        # Validate each app in the list
+        available_apps = manager.get_available_apps()
+        for app_config in apps:
+            if "app" not in app_config:
+                return jsonify({"error": "Each app entry must have 'app' field"}), 400
+            if app_config["app"] not in available_apps:
+                return (
+                    jsonify({"error": f"App not found: {app_config['app']}"}),
+                    404,
+                )
+            if "duration" not in app_config:
+                return (
+                    jsonify({"error": "Each app entry must have 'duration' field"}),
+                    400,
+                )
+            if (
+                not isinstance(app_config["duration"], (int, float))
+                or app_config["duration"] <= 0
+            ):
+                return (
+                    jsonify({"error": "Duration must be a positive number"}),
+                    400,
+                )
+
+        # Update carousel configuration
+        manager.update_carousel_config(enabled, apps)
+
+        return jsonify({"success": True, "enabled": enabled, "apps": apps})
+
     @app.route("/api/health", methods=["GET"])
     def health():
         """Health check endpoint."""

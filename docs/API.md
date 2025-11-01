@@ -190,6 +190,66 @@ Content-Type: application/json
 
 **Note:** Settings are persisted to `state.json` and restored on server restart.
 
+### Get Carousel Configuration
+```bash
+GET /api/carousel
+```
+
+**Response:**
+```json
+{
+  "enabled": true,
+  "apps": [
+    {"app": "clock", "duration": 10},
+    {"app": "scroll_text", "duration": 15},
+    {"app": "stars", "duration": 20}
+  ],
+  "current_index": 0
+}
+```
+
+### Update Carousel Configuration
+```bash
+POST /api/carousel
+Content-Type: application/json
+
+{
+  "enabled": true,
+  "apps": [
+    {"app": "clock", "duration": 10},
+    {"app": "scroll_text", "duration": 15},
+    {"app": "stars", "duration": 20}
+  ]
+}
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "enabled": true,
+  "apps": [
+    {"app": "clock", "duration": 10},
+    {"app": "scroll_text", "duration": 15},
+    {"app": "stars", "duration": 20}
+  ]
+}
+```
+
+**Carousel Settings:**
+- `enabled` - Boolean, whether carousel mode is active
+- `apps` - Array of app configurations to rotate through
+  - `app` - Name of the app to display
+  - `duration` - Time in seconds to display this app before switching to the next
+
+**Notes:**
+- When carousel is enabled, it automatically rotates through the specified apps
+- Each app uses its saved configuration from `/api/apps/<app_name>/config`
+- The carousel index wraps around (after the last app, it goes back to the first)
+- Carousel configuration is persisted to `state.json`
+- Setting `enabled: false` stops the carousel and maintains the current app
+- Duration must be a positive number (in seconds)
+
 ### Health Check
 ```bash
 GET /api/health
@@ -253,6 +313,26 @@ curl http://localhost:5000/api/settings
 curl -X POST http://localhost:5000/api/settings \
   -H "Content-Type: application/json" \
   -d '{"brightness": 50}'
+
+# Get carousel configuration
+curl http://localhost:5000/api/carousel
+
+# Enable carousel mode
+curl -X POST http://localhost:5000/api/carousel \
+  -H "Content-Type: application/json" \
+  -d '{
+    "enabled": true,
+    "apps": [
+      {"app": "clock", "duration": 10},
+      {"app": "scroll_text", "duration": 15},
+      {"app": "stars", "duration": 20}
+    ]
+  }'
+
+# Disable carousel mode
+curl -X POST http://localhost:5000/api/carousel \
+  -H "Content-Type: application/json" \
+  -d '{"enabled": false, "apps": []}'
 ```
 
 ### Using Python requests
@@ -288,6 +368,26 @@ print(response.json())
 # Update brightness
 requests.post('http://localhost:5000/api/settings', json={
     'brightness': 75
+})
+
+# Get carousel configuration
+response = requests.get('http://localhost:5000/api/carousel')
+print(response.json())
+
+# Enable carousel mode with multiple apps
+requests.post('http://localhost:5000/api/carousel', json={
+    'enabled': True,
+    'apps': [
+        {'app': 'clock', 'duration': 10},
+        {'app': 'scroll_text', 'duration': 15},
+        {'app': 'stars', 'duration': 20}
+    ]
+})
+
+# Disable carousel mode
+requests.post('http://localhost:5000/api/carousel', json={
+    'enabled': False,
+    'apps': []
 })
 ```
 
@@ -421,11 +521,62 @@ Response:
 }
 ```
 
+## Carousel Mode
+
+Carousel mode allows you to automatically rotate through multiple apps with configurable display times.
+
+### How It Works
+
+1. **Configure Apps** - Set up each app's configuration separately
+2. **Enable Carousel** - Specify which apps to rotate through and for how long
+3. **Auto-Rotation** - The server automatically switches apps after each duration
+
+### Example Workflow
+
+```bash
+# 1. Configure each app
+curl -X POST http://localhost:5000/api/apps/clock/config \
+  -H "Content-Type: application/json" \
+  -d '{"color": [255, 0, 0]}'
+
+curl -X POST http://localhost:5000/api/apps/scroll_text/config \
+  -H "Content-Type: application/json" \
+  -d '{"text": "Hello World!", "color": [0, 255, 0]}'
+
+curl -X POST http://localhost:5000/api/apps/stars/config \
+  -H "Content-Type: application/json" \
+  -d '{"spawn_rate": 3}'
+
+# 2. Enable carousel mode
+curl -X POST http://localhost:5000/api/carousel \
+  -H "Content-Type: application/json" \
+  -d '{
+    "enabled": true,
+    "apps": [
+      {"app": "clock", "duration": 10},
+      {"app": "scroll_text", "duration": 15},
+      {"app": "stars", "duration": 20}
+    ]
+  }'
+
+# The display will now show:
+# - Clock for 10 seconds (in red)
+# - Scroll text for 15 seconds (in green, saying "Hello World!")
+# - Stars for 20 seconds (with spawn rate of 3)
+# - Then repeat from clock
+```
+
+### Carousel Features
+
+- **Persistent** - Carousel configuration is saved to `state.json`
+- **Seamless** - Apps switch automatically without API calls
+- **Flexible** - Each app can have different display durations
+- **Independent** - Each app uses its own saved configuration
+- **Controllable** - Can be enabled/disabled via API or web interface
+
 ## Future Enhancements
 
 Planned features:
-- Carousel mode (auto-rotate through apps)
 - Scheduling (run different apps at different times)
 - Presets (save favorite configurations)
 - WebSocket support for real-time updates
-- Web UI for visual control

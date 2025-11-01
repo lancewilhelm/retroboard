@@ -10,7 +10,7 @@ import queue
 import logging
 import json
 import os
-from typing import Optional, Dict, Type, Tuple
+from typing import Optional, Dict, Type, Tuple, List
 from apps import MatrixApplication
 
 logger = logging.getLogger(__name__)
@@ -47,6 +47,13 @@ class ApplicationManager:
         self.state_file = state_file
         self.app_configs: Dict[str, Dict] = {}  # Stores last known config for each app
         self.settings: Dict = {}  # Stores global settings (brightness, etc.)
+
+        # Carousel mode settings
+        self.carousel_enabled = False
+        self.carousel_apps: List[Dict] = []  # List of {app: str, duration: int}
+        self.carousel_index = 0
+        self.carousel_timer = 0
+        self.last_carousel_time = time.time()
 
     def register_app(self, name: str, app_class: Type[MatrixApplication]):
         """
@@ -207,6 +214,28 @@ class ApplicationManager:
                         self.save_state()
                         logger.info(f"Updated brightness to {brightness}")
 
+                elif action == "carousel":
+                    # Update carousel settings
+                    self.carousel_enabled = command.get("enabled", False)
+                    self.carousel_apps = command.get("apps", [])
+                    self.carousel_index = 0
+                    self.carousel_timer = 0
+                    self.last_carousel_time = time.time()
+
+                    # If enabling carousel with apps, start the first one
+                    if self.carousel_enabled and self.carousel_apps:
+                        first_app_config = self.carousel_apps[0]
+                        app_name = first_app_config["app"]
+                        config = self.get_app_config(app_name)
+                        self.start_app(app_name, config)
+                        logger.info(
+                            f"Started carousel mode with {len(self.carousel_apps)} apps"
+                        )
+                    elif not self.carousel_enabled:
+                        logger.info("Carousel mode disabled")
+
+                    self.save_state()
+
                 elif action == "quit":
                     self.running = False
 
@@ -222,7 +251,8 @@ class ApplicationManager:
         This should be called from the main thread. It will:
         1. Process commands from the API
         2. Run one iteration of the current app
-        3. Sleep briefly to prevent CPU spinning
+        3. Handle carousel rotation if enabled
+        4. Sleep briefly to prevent CPU spinning
         """
         self.running = True
         logger.info("Application manager started")
@@ -231,6 +261,30 @@ class ApplicationManager:
             while self.running:
                 # Process any API commands
                 self.process_commands()
+
+                # Handle carousel rotation
+                if self.carousel_enabled and self.carousel_apps:
+                    current_time = time.time()
+                    elapsed = current_time - self.last_carousel_time
+
+                    # Get current app duration (in seconds)
+                    current_carousel_config = self.carousel_apps[self.carousel_index]
+                    duration = current_carousel_config.get("duration", 10)
+
+                    if elapsed >= duration:
+                        # Time to switch to next app in carousel
+                        self.carousel_index = (self.carousel_index + 1) % len(
+                            self.carousel_apps
+                        )
+                        next_carousel_config = self.carousel_apps[self.carousel_index]
+                        next_app = next_carousel_config["app"]
+                        config = self.get_app_config(next_app)
+
+                        logger.info(
+                            f"Carousel switching to: {next_app} (#{self.carousel_index + 1}/{len(self.carousel_apps)})"
+                        )
+                        self.start_app(next_app, config)
+                        self.last_carousel_time = current_time
 
                 # Run current app if one is active
                 if self.current_app:
@@ -287,13 +341,20 @@ class ApplicationManager:
             app_configs = state.get("app_configs", {})
             settings = state.get("settings", {})
 
+            # Load carousel settings
+            carousel_config = state.get("carousel", {})
+            self.carousel_enabled = carousel_config.get("enabled", False)
+            self.carousel_apps = carousel_config.get("apps", [])
+            self.carousel_index = carousel_config.get("index", 0)
+            self.last_carousel_time = time.time()
+
             # Apply settings
             if "brightness" in settings:
                 self.driver.set_brightness(settings["brightness"])
                 self.settings = settings
 
             logger.info(
-                f"Loaded state: last_app={last_app}, configs for {len(app_configs)} apps, settings={settings}"
+                f"Loaded state: last_app={last_app}, configs for {len(app_configs)} apps, settings={settings}, carousel={self.carousel_enabled}"
             )
             return last_app, app_configs
 
@@ -313,6 +374,11 @@ class ApplicationManager:
                 "last_app": self.current_app_name,
                 "app_configs": self.app_configs,
                 "settings": self.settings,
+                "carousel": {
+                    "enabled": self.carousel_enabled,
+                    "apps": self.carousel_apps,
+                    "index": self.carousel_index,
+                },
             }
 
             with open(self.state_file, "w") as f:
@@ -334,3 +400,32 @@ class ApplicationManager:
             Configuration dictionary, or empty dict if none saved
         """
         return self.app_configs.get(app_name, {})
+
+    def get_carousel_config(self) -> Dict:
+        """
+        Get the current carousel configuration.
+
+        Returns:
+            Dictionary with carousel settings
+        """
+        return {
+            "enabled": self.carousel_enabled,
+            "apps": self.carousel_apps,
+            "current_index": self.carousel_index,
+        }
+
+    def update_carousel_config(self, enabled: bool, apps: List[Dict]):
+        """
+        Update carousel configuration.
+
+        Args:
+            enabled: Whether carousel mode is enabled
+            apps: List of {app: str, duration: int} dictionaries
+        """
+        self.queue_command(
+            {
+                "action": "carousel",
+                "enabled": enabled,
+                "apps": apps,
+            }
+        )

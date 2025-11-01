@@ -11,6 +11,11 @@ const isDarkTheme = ref(true); // Default to dark theme
 const lastKnownApp = ref(null);
 const brightness = ref(100); // 0-100
 
+// Carousel/Rotation Mode
+const carouselEnabled = ref(false);
+const carouselApps = ref([]); // Array of {app: string, duration: number}
+const editingCarousel = ref(false);
+
 // App Configurations
 const clockConfig = ref({
     font: "tom-thumb",
@@ -299,6 +304,66 @@ async function updateBrightness() {
     }
 }
 
+async function fetchCarousel() {
+    try {
+        const response = await fetch(`${API_BASE}/carousel`);
+        if (response.ok) {
+            const data = await response.json();
+            carouselEnabled.value = data.enabled || false;
+            carouselApps.value = data.apps || [];
+        }
+    } catch (err) {
+        console.error("Error fetching carousel config:", err);
+    }
+}
+
+async function updateCarousel() {
+    try {
+        const response = await fetch(`${API_BASE}/carousel`, {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+                enabled: carouselEnabled.value,
+                apps: carouselApps.value,
+            }),
+        });
+
+        if (response.ok) {
+            error.value = null;
+            editingCarousel.value = false;
+        } else {
+            const data = await response.json();
+            error.value = data.error || "Failed to update carousel";
+        }
+    } catch (err) {
+        error.value = "Failed to update carousel";
+        console.error("Error updating carousel:", err);
+    }
+}
+
+function addCarouselApp() {
+    if (availableApps.value.length === 0) return;
+
+    carouselApps.value.push({
+        app: availableApps.value[0],
+        duration: 10,
+    });
+}
+
+function removeCarouselApp(index) {
+    carouselApps.value.splice(index, 1);
+}
+
+function toggleCarouselEdit() {
+    editingCarousel.value = !editingCarousel.value;
+    if (!editingCarousel.value) {
+        // Cancelled editing, reload from server
+        fetchCarousel();
+    }
+}
+
 // Lifecycle
 onMounted(async () => {
     // Load theme preference
@@ -310,6 +375,7 @@ onMounted(async () => {
     // Initial fetch
     await fetchApps();
     await fetchSettings();
+    await fetchCarousel();
 
     // Fetch current app and config on first load
     try {
@@ -578,6 +644,128 @@ onUnmounted(() => {
                         <button @click="switchApp" class="btn btn-primary">
                             Switch to App
                         </button>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Carousel/Rotation Mode -->
+            <section class="carousel">
+                <h2>🔄 Carousel Mode</h2>
+                <div v-if="!editingCarousel" class="carousel-display">
+                    <div class="carousel-status">
+                        <span
+                            class="status-badge"
+                            :class="{ active: carouselEnabled }"
+                        >
+                            {{ carouselEnabled ? "Enabled" : "Disabled" }}
+                        </span>
+                        <span
+                            v-if="carouselEnabled && carouselApps.length > 0"
+                            class="carousel-info"
+                        >
+                            Rotating through {{ carouselApps.length }} app{{
+                                carouselApps.length !== 1 ? "s" : ""
+                            }}
+                        </span>
+                    </div>
+                    <div v-if="carouselApps.length > 0" class="carousel-list">
+                        <div
+                            v-for="(item, index) in carouselApps"
+                            :key="index"
+                            class="carousel-item"
+                        >
+                            <span class="carousel-item-number"
+                                >{{ index + 1 }}.</span
+                            >
+                            <span class="carousel-item-app">{{
+                                formatAppName(item.app)
+                            }}</span>
+                            <span class="carousel-item-duration"
+                                >{{ item.duration }}s</span
+                            >
+                        </div>
+                    </div>
+                    <button
+                        @click="toggleCarouselEdit"
+                        class="btn btn-secondary"
+                    >
+                        Configure Carousel
+                    </button>
+                </div>
+
+                <div v-else class="carousel-editor">
+                    <div class="form-group">
+                        <label>
+                            <input type="checkbox" v-model="carouselEnabled" />
+                            Enable Carousel Mode
+                        </label>
+                    </div>
+
+                    <div
+                        v-if="carouselApps.length > 0"
+                        class="carousel-apps-list"
+                    >
+                        <div
+                            v-for="(item, index) in carouselApps"
+                            :key="index"
+                            class="carousel-app-config"
+                        >
+                            <div class="carousel-app-row">
+                                <span class="carousel-app-number"
+                                    >{{ index + 1 }}.</span
+                                >
+                                <select
+                                    v-model="item.app"
+                                    class="input carousel-app-select"
+                                >
+                                    <option
+                                        v-for="app in availableApps"
+                                        :key="app"
+                                        :value="app"
+                                    >
+                                        {{ formatAppName(app) }}
+                                    </option>
+                                </select>
+                                <input
+                                    type="number"
+                                    v-model.number="item.duration"
+                                    min="1"
+                                    max="3600"
+                                    class="input carousel-duration-input"
+                                    placeholder="Duration (s)"
+                                />
+                                <button
+                                    @click="removeCarouselApp(index)"
+                                    class="btn-remove"
+                                    title="Remove"
+                                >
+                                    ❌
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="carousel-actions">
+                        <button
+                            @click="addCarouselApp"
+                            class="btn btn-secondary"
+                        >
+                            ➕ Add App
+                        </button>
+                        <div class="button-group">
+                            <button
+                                @click="toggleCarouselEdit"
+                                class="btn btn-secondary"
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                @click="updateCarousel"
+                                class="btn btn-primary"
+                            >
+                                Save Carousel
+                            </button>
+                        </div>
                     </div>
                 </div>
             </section>
@@ -1044,5 +1232,190 @@ section h2 {
     background: #991b1b;
     border-color: #b91c1c;
     color: #fecaca;
+}
+
+/* Carousel Styles */
+.carousel-display {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+.carousel-status {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+}
+
+.status-badge {
+    padding: 0.25rem 0.75rem;
+    border-radius: 0.375rem;
+    font-weight: 600;
+    font-size: 0.875rem;
+    background: #e5e7eb;
+    color: #6b7280;
+}
+
+.status-badge.active {
+    background: #d1fae5;
+    color: #065f46;
+}
+
+.dark-theme .status-badge {
+    background: #374151;
+    color: #9ca3af;
+}
+
+.dark-theme .status-badge.active {
+    background: #065f46;
+    color: #d1fae5;
+}
+
+.carousel-info {
+    color: #6b7280;
+    font-size: 0.875rem;
+}
+
+.dark-theme .carousel-info {
+    color: #9ca3af;
+}
+
+.carousel-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    padding: 1rem;
+    background: #f9fafb;
+    border-radius: 0.5rem;
+    border: 1px solid #e5e7eb;
+}
+
+.dark-theme .carousel-list {
+    background: #1f2937;
+    border-color: #374151;
+}
+
+.carousel-item {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.5rem;
+    background: white;
+    border-radius: 0.375rem;
+    border: 1px solid #e5e7eb;
+}
+
+.dark-theme .carousel-item {
+    background: #111827;
+    border-color: #4b5563;
+}
+
+.carousel-item-number {
+    font-weight: 600;
+    color: #6b7280;
+    min-width: 1.5rem;
+}
+
+.dark-theme .carousel-item-number {
+    color: #9ca3af;
+}
+
+.carousel-item-app {
+    flex: 1;
+    font-weight: 500;
+    color: #1f2937;
+}
+
+.dark-theme .carousel-item-app {
+    color: #e5e7eb;
+}
+
+.carousel-item-duration {
+    padding: 0.25rem 0.5rem;
+    background: #e0e7ff;
+    color: #3730a3;
+    border-radius: 0.25rem;
+    font-size: 0.875rem;
+    font-weight: 600;
+}
+
+.dark-theme .carousel-item-duration {
+    background: #312e81;
+    color: #c7d2fe;
+}
+
+.carousel-editor {
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+}
+
+.carousel-apps-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
+.carousel-app-config {
+    padding: 1rem;
+    background: #f9fafb;
+    border-radius: 0.5rem;
+    border: 1px solid #e5e7eb;
+}
+
+.dark-theme .carousel-app-config {
+    background: #1f2937;
+    border-color: #374151;
+}
+
+.carousel-app-row {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+}
+
+.carousel-app-number {
+    font-weight: 600;
+    color: #6b7280;
+    min-width: 1.5rem;
+}
+
+.dark-theme .carousel-app-number {
+    color: #9ca3af;
+}
+
+.carousel-app-select {
+    flex: 1;
+}
+
+.carousel-duration-input {
+    width: 8rem;
+}
+
+.btn-remove {
+    padding: 0.5rem;
+    border: none;
+    background: transparent;
+    cursor: pointer;
+    font-size: 1rem;
+    border-radius: 0.375rem;
+    transition: all 0.2s;
+}
+
+.btn-remove:hover {
+    background: #fee2e2;
+    transform: scale(1.1);
+}
+
+.dark-theme .btn-remove:hover {
+    background: #7f1d1d;
+}
+
+.carousel-actions {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 1rem;
 }
 </style>

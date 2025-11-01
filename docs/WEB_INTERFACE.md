@@ -7,6 +7,7 @@ The RetroBoard Web Interface is a modern, user-friendly Vue 3 application that p
 The web interface allows you to:
 - Switch between available applications
 - Configure app settings in real-time without interference
+- Configure carousel mode to automatically rotate through apps
 - View live connection status
 - Control the display from any device on your network
 - Toggle between dark and light themes
@@ -89,6 +90,34 @@ Click the moon 🌙 or sun ☀️ button in the header to switch between dark an
 - **Dark Theme** (default): Easy on the eyes for extended use
 - **Light Theme**: Traditional bright interface
 
+### Carousel Mode
+
+Carousel mode automatically rotates through multiple apps with configurable display times. This is perfect for:
+- Information displays showing different data sources
+- Digital signage cycling through messages
+- Dashboards with multiple visualizations
+- Showcasing different app capabilities
+
+**Configuration:**
+1. Click "Configure Carousel" to open the editor
+2. Check "Enable Carousel Mode" to activate it
+3. Click "➕ Add App" to add apps to the rotation
+4. For each app:
+   - Select which app to display
+   - Set duration in seconds (how long to show it)
+5. Click "Save Carousel" to apply
+
+**Features:**
+- Each app uses its saved configuration
+- Duration is specified in seconds per app
+- Apps can have different display times
+- Carousel automatically loops back to the first app
+- Configuration is saved and persists across server restarts
+- Can be disabled without losing your app list
+
+**Example Use Case:**
+Show a clock for 10 seconds, scroll text for 15 seconds, and stars animation for 20 seconds, then repeat.
+
 ### Smooth Config Updates
 
 When updating the configuration of the **currently running app**, the interface uses the `/api/config` endpoint to apply changes without restarting. This provides a seamless experience with no visual interruption.
@@ -158,6 +187,8 @@ The web interface communicates with the RetroBoard server through these endpoint
 | `/api/switch` | POST | Switch to a different app |
 | `/api/stop` | POST | Stop the current app |
 | `/api/config` | POST | Update app configuration |
+| `/api/carousel` | GET | Get carousel configuration |
+| `/api/carousel` | POST | Update carousel configuration |
 | `/api/health` | GET | Check server health |
 
 See [API.md](API.md) for complete API documentation.
@@ -404,12 +435,12 @@ Modern browser features used:
 Planned features:
 - [x] Dark mode toggle (implemented!)
 - [x] Smart polling that doesn't interfere with editing (implemented!)
+- [x] Carousel mode controls (implemented!)
 - [ ] WebSocket support for real-time updates without polling
 - [ ] Enhanced visual color picker component (HTML5 color input)
 - [ ] Live preview/thumbnail of display
 - [ ] Preset management (save/load favorites)
 - [ ] Keyboard shortcuts
-- [ ] Carousel mode controls
 - [ ] Schedule/timer interface
 - [ ] Mobile app (PWA support)
 - [ ] Authentication system
